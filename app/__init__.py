@@ -21,16 +21,19 @@ def create_app():
 
         # ── Auto-seed admin on first run (e.g. fresh Render deploy) ──────────
         from app.models import User
-        if User.query.count() == 0:
-            from app.database import bcrypt as _bcrypt
-            admin = User(
-                username="rohith",
-                password_hash=_bcrypt.generate_password_hash("admin").decode("utf-8"),
-                is_admin=True,
-            )
-            db.session.add(admin)
-            db.session.commit()
-            app.logger.info("Admin user 'rohith' created automatically.")
+        try:
+            if not User.query.filter_by(username="rohith").first():
+                from app.database import bcrypt as _bcrypt
+                admin = User(
+                    username="rohith",
+                    password_hash=_bcrypt.generate_password_hash("admin").decode("utf-8"),
+                    is_admin=True,
+                )
+                db.session.add(admin)
+                db.session.commit()
+                app.logger.info("Admin user 'rohith' created automatically.")
+        except Exception:
+            db.session.rollback()
 
     from app.routes import main
     from app.auth import auth
