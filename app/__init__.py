@@ -19,6 +19,19 @@ def create_app():
         from app import models  # noqa
         db.create_all()
 
+        # ── Auto-seed admin on first run (e.g. fresh Render deploy) ──────────
+        from app.models import User
+        if User.query.count() == 0:
+            from app.database import bcrypt as _bcrypt
+            admin = User(
+                username="rohith",
+                password_hash=_bcrypt.generate_password_hash("admin").decode("utf-8"),
+                is_admin=True,
+            )
+            db.session.add(admin)
+            db.session.commit()
+            app.logger.info("Admin user 'rohith' created automatically.")
+
     from app.routes import main
     from app.auth import auth
     from app.admin import admin_bp
