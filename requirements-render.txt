@@ -1,0 +1,12 @@
+# Render-optimized requirements — no TensorFlow (too heavy for 512MB free tier)
+# The app automatically uses Gemini Vision AI for all predictions when TF is absent.
+flask>=2.3.0
+Pillow>=10.0.0
+google-genai>=0.8.0
+python-dotenv>=1.0.0
+numpy>=1.24.0
+reportlab>=4.0.0
+flask-sqlalchemy>=3.0.0
+flask-login>=0.6.2
+flask-bcrypt>=1.0.1
+gunicorn>=21.2.0

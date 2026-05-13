@@ -42,47 +42,54 @@ class CustomTFClassifier:
             import keras
             self.tf = tf
             self.keras = keras
+            self.tf_available = True
             
-            # Load weights - prefer patched (quantization_config-stripped) version,
-            # fall back to original .keras then .h5
+            # Load weights - prefer patched version, fall back to .keras then .h5
             model_path_fixed = os.path.join("models", "final_model.keras")
             model_path_keras = os.path.join("models", "best_model.keras")
             model_path_h5    = os.path.join("models", "best_model.h5")
 
             if os.path.exists(model_path_fixed):
                 self.model = keras.models.load_model(model_path_fixed)
-                print(f"[Model] [OK] Weights loaded successfully from {model_path_fixed}!")
+                print(f"[Model] Weights loaded from {model_path_fixed}")
             elif os.path.exists(model_path_keras):
                 self.model = keras.models.load_model(model_path_keras)
-                print(f"[Model] [OK] Weights loaded successfully from {model_path_keras}!")
+                print(f"[Model] Weights loaded from {model_path_keras}")
             elif os.path.exists(model_path_h5):
                 self.model = keras.models.load_model(model_path_h5)
-                print(f"[Model] [OK] Weights loaded successfully from {model_path_h5}!")
+                print(f"[Model] Weights loaded from {model_path_h5}")
             else:
-                logger.warning(f"Weights file not found. Using UNTRAINED model until training finishes.")
-                # Create a dummy model
-                base = keras.applications.ResNet50(include_top=False, input_shape=(224, 224, 3))
-                x = keras.layers.GlobalAveragePooling2D()(base.output)
-                outputs = keras.layers.Dense(38, activation='softmax')(x)
-                self.model = keras.Model(base.input, outputs)
+                logger.warning("No model weights found. Gemini Vision will handle all predictions.")
+                self.model = None
                 
+        except ImportError:
+            logger.warning("TensorFlow not installed. Running in Gemini-Vision-only mode.")
+            self.tf_available = False
+            self.model = None
         except Exception as e:
             logger.error(f"Failed to initialize TensorFlow model: {e}")
+            self.tf_available = False
             self.model = None
 
     def predict(self, image: Image.Image) -> dict:
         """
-        Run inference with Test-Time Augmentation (TTA).
-
-        TTA strategy: generate 8 views of the image (original + flips + rotations +
-        center-crop), run each through the model, then average the softmax outputs.
-        This significantly improves accuracy on real-world photos that differ from
-        the controlled PlantVillage training distribution.
+        Run inference. If TensorFlow/model is unavailable, returns tier=3
+        which triggers automatic Gemini Vision fallback in routes.py.
         """
+        # No TF or no model — signal Gemini Vision to take over
+        if not getattr(self, 'tf_available', False) or self.model is None:
+            return {
+                "raw_label": "Unknown___Unknown",
+                "crop": "Unknown",
+                "disease": "Unknown",
+                "confidence": 0.0,
+                "is_healthy": False,
+                "top_predictions": [],
+                "tier": 3,
+            }
+
         if not self.label_map:
-            raise RuntimeError("Model classes not loaded. Please ensure class_names.json exists in models directory.")
-        if self.model is None:
-            raise RuntimeError("TensorFlow model failed to load.")
+            raise RuntimeError("Model classes not loaded. Please ensure class_names.json exists.")
 
         rgb = image.convert("RGB")
 

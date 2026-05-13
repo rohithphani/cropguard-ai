@@ -17,7 +17,10 @@ def create_app():
 
     with app.app_context():
         from app import models  # noqa
-        db.create_all()
+        try:
+            db.create_all()
+        except Exception:
+            db.session.rollback()
 
         # ── Auto-seed admin on first run (e.g. fresh Render deploy) ──────────
         from app.models import User
