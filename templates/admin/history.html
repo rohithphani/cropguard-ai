@@ -1,0 +1,88 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Scan History — Admin Panel{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+
+  <div class="admin-page-header">
+    <div>
+      <h1 class="admin-page-title">📋 All Scan History</h1>
+      <p class="admin-page-sub">{{ pagination.total }} total scan record{{ 's' if pagination.total != 1 }}</p>
+    </div>
+  </div>
+
+  <!-- Search -->
+  <form method="GET" class="admin-search-row">
+    <input type="text" name="q" value="{{ search }}" placeholder="Search by user, crop, or disease…"
+           class="admin-search-input" id="admin-history-search" />
+    <button type="submit" class="admin-btn admin-btn-blue">Search</button>
+    {% if search %}
+      <a href="{{ url_for('admin.history') }}" class="admin-btn admin-btn-gray">Clear</a>
+    {% endif %}
+  </form>
+
+  <div class="admin-panel" style="margin-top:1rem;">
+    {% if pagination.items %}
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>User</th>
+            <th>Crop</th>
+            <th>Disease</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for scan, username in pagination.items %}
+          <tr>
+            <td class="admin-muted">{{ scan.id }}</td>
+            <td><span class="admin-user-chip">{{ username }}</span></td>
+            <td>{{ scan.crop }}</td>
+            <td>{{ scan.disease }}</td>
+            <td>
+              {% if scan.disease.lower() == 'healthy' %}
+                <span class="admin-badge admin-badge-green">Healthy</span>
+              {% else %}
+                <span class="admin-badge admin-badge-red">Disease</span>
+              {% endif %}
+            </td>
+            <td class="admin-muted">{{ scan.timestamp.strftime('%b %d, %Y %H:%M') }}</td>
+            <td>
+              <form method="POST"
+                    action="{{ url_for('admin.delete_history', item_id=scan.id) }}"
+                    onsubmit="return confirm('Delete this scan record?')">
+                <button type="submit" class="admin-btn admin-btn-danger">🗑️</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <div class="admin-pagination">
+      {% if pagination.has_prev %}
+        <a href="{{ url_for('admin.history', page=pagination.prev_num, q=search) }}" class="admin-btn admin-btn-gray">← Prev</a>
+      {% endif %}
+      <span class="admin-muted">Page {{ pagination.page }} of {{ pagination.pages }}</span>
+      {% if pagination.has_next %}
+        <a href="{{ url_for('admin.history', page=pagination.next_num, q=search) }}" class="admin-btn admin-btn-gray">Next →</a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+      <p class="admin-empty">
+        {% if search %}No results for "{{ search }}".{% else %}No scan records found.{% endif %}
+      </p>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

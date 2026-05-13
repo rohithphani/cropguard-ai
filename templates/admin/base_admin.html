@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Admin Panel — CropGuard AI{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>" />
+</head>
+<body class="admin-body">
+
+  <div class="admin-layout">
+
+    <!-- ── Sidebar ────────────────────────────── -->
+    <aside class="admin-sidebar">
+      <div class="admin-brand">
+        <span class="admin-brand-icon">🛡️</span>
+        <div>
+          <div class="admin-brand-name">Admin Panel</div>
+          <div class="admin-brand-sub">CropGuard AI</div>
+        </div>
+      </div>
+
+      <nav class="admin-nav">
+        <a href="{{ url_for('admin.dashboard') }}"
+           class="admin-nav-item {% if request.endpoint == 'admin.dashboard' %}active{% endif %}">
+          <span class="anav-icon">📊</span> Dashboard
+        </a>
+        <a href="{{ url_for('admin.users') }}"
+           class="admin-nav-item {% if request.endpoint in ['admin.users', 'admin.delete_user', 'admin.toggle_admin'] %}active{% endif %}">
+          <span class="anav-icon">👥</span> Users
+        </a>
+        <a href="{{ url_for('admin.history') }}"
+           class="admin-nav-item {% if 'admin.history' in request.endpoint %}active{% endif %}">
+          <span class="anav-icon">📋</span> Scan History
+        </a>
+      </nav>
+
+      <div class="admin-sidebar-footer">
+        <div class="admin-user-info">
+          <div class="admin-user-avatar">{{ current_user.username[0].upper() }}</div>
+          <div>
+            <div class="admin-user-name">{{ current_user.username }}</div>
+            <div class="admin-user-role">Administrator</div>
+          </div>
+        </div>
+        <a href="{{ url_for('main.index') }}" class="admin-back-link">
+          ← Back to App
+        </a>
+        <a href="{{ url_for('auth.logout') }}" class="admin-logout-link">
+          🚪 Sign Out
+        </a>
+      </div>
+    </aside>
+
+    <!-- ── Main Content ───────────────────────── -->
+    <div class="admin-main">
+
+      <!-- Flash messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="admin-flashes">
+            {% for category, message in messages %}
+              <div class="admin-flash admin-flash-{{ category }}">
+                {{ message }}
+                <button onclick="this.parentElement.remove()">✕</button>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,139 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Dashboard — Admin Panel{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+
+  <div class="admin-page-header">
+    <div>
+      <h1 class="admin-page-title">📊 Dashboard</h1>
+      <p class="admin-page-sub">System overview and real-time stats</p>
+    </div>
+  </div>
+
+  <!-- ── Stat Cards ── -->
+  <div class="admin-stats-grid">
+    <div class="astat-card astat-blue">
+      <div class="astat-icon">👥</div>
+      <div class="astat-body">
+        <div class="astat-number">{{ total_users }}</div>
+        <div class="astat-label">Total Users</div>
+      </div>
+    </div>
+    <div class="astat-card astat-purple">
+      <div class="astat-icon">🔬</div>
+      <div class="astat-body">
+        <div class="astat-number">{{ total_scans }}</div>
+        <div class="astat-label">Total Scans</div>
+      </div>
+    </div>
+    <div class="astat-card astat-green">
+      <div class="astat-icon">✅</div>
+      <div class="astat-body">
+        <div class="astat-number">{{ healthy_scans }}</div>
+        <div class="astat-label">Healthy Scans</div>
+      </div>
+    </div>
+    <div class="astat-card astat-red">
+      <div class="astat-icon">⚠️</div>
+      <div class="astat-body">
+        <div class="astat-number">{{ disease_scans }}</div>
+        <div class="astat-label">Disease Detected</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Bottom Grid ── -->
+  <div class="admin-two-col">
+
+    <!-- Top Diseases -->
+    <div class="admin-panel">
+      <div class="admin-panel-header">
+        <h2 class="admin-panel-title">🦠 Top Detected Diseases</h2>
+      </div>
+      {% if top_diseases %}
+        <div class="atop-list">
+          {% set max_cnt = top_diseases[0].cnt if top_diseases else 1 %}
+          {% for disease, cnt in top_diseases %}
+          <div class="atop-row">
+            <div class="atop-label">{{ disease }}</div>
+            <div class="atop-bar-bg">
+              <div class="atop-bar atop-bar-red" style="width: {{ (cnt / max_cnt * 100)|int }}%"></div>
+            </div>
+            <div class="atop-count">{{ cnt }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="admin-empty">No scan data yet.</p>
+      {% endif %}
+    </div>
+
+    <!-- Top Crops -->
+    <div class="admin-panel">
+      <div class="admin-panel-header">
+        <h2 class="admin-panel-title">🌿 Most Scanned Crops</h2>
+      </div>
+      {% if top_crops %}
+        <div class="atop-list">
+          {% set max_cnt = top_crops[0].cnt if top_crops else 1 %}
+          {% for crop, cnt in top_crops %}
+          <div class="atop-row">
+            <div class="atop-label">{{ crop }}</div>
+            <div class="atop-bar-bg">
+              <div class="atop-bar atop-bar-green" style="width: {{ (cnt / max_cnt * 100)|int }}%"></div>
+            </div>
+            <div class="atop-count">{{ cnt }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="admin-empty">No scan data yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── Recent Scans ── -->
+  <div class="admin-panel" style="margin-top: 1.5rem;">
+    <div class="admin-panel-header">
+      <h2 class="admin-panel-title">🕐 Recent Scans</h2>
+      <a href="{{ url_for('admin.history') }}" class="admin-view-all">View All →</a>
+    </div>
+    {% if recent_scans %}
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Crop</th>
+            <th>Disease</th>
+            <th>Status</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for scan in recent_scans %}
+          <tr>
+            <td><span class="admin-user-chip">{{ scan.author.username }}</span></td>
+            <td>{{ scan.crop }}</td>
+            <td>{{ scan.disease }}</td>
+            <td>
+              {% if scan.disease.lower() == 'healthy' %}
+                <span class="admin-badge admin-badge-green">Healthy</span>
+              {% else %}
+                <span class="admin-badge admin-badge-red">Disease</span>
+              {% endif %}
+            </td>
+            <td class="admin-muted">{{ scan.timestamp.strftime('%b %d, %Y') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <p class="admin-empty">No scans yet.</p>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

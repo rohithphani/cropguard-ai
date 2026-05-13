@@ -37,6 +37,12 @@
             <a href="{{ url_for('main.history') }}" class="dropdown-item" role="menuitem">
               <span>📋</span> My History
             </a>
+            {% if current_user.is_admin %}
+            <div class="dropdown-divider"></div>
+            <a href="{{ url_for('admin.dashboard') }}" class="dropdown-item dropdown-item-admin" role="menuitem">
+              <span>🛡️</span> Admin Panel
+            </a>
+            {% endif %}
             <div class="dropdown-divider"></div>
             <a href="{{ url_for('auth.logout') }}" class="dropdown-item dropdown-item-danger" role="menuitem">
               <span>🚪</span> Sign Out

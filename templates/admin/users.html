@@ -1,0 +1,83 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Users — Admin Panel{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+
+  <div class="admin-page-header">
+    <div>
+      <h1 class="admin-page-title">👥 User Management</h1>
+      <p class="admin-page-sub">{{ all_users|length }} registered user{{ 's' if all_users|length != 1 }}</p>
+    </div>
+  </div>
+
+  <div class="admin-panel">
+    {% if all_users %}
+    <div class="admin-table-wrap">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Username</th>
+            <th>Role</th>
+            <th>Scans</th>
+            <th>Joined</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user, scan_count in all_users %}
+          <tr>
+            <td class="admin-muted">{{ user.id }}</td>
+            <td>
+              <div style="display:flex; align-items:center; gap:0.6rem;">
+                <div class="admin-user-avatar-sm">{{ user.username[0].upper() }}</div>
+                <span>{{ user.username }}</span>
+                {% if user.id == current_user.id %}
+                  <span class="admin-badge admin-badge-blue">You</span>
+                {% endif %}
+              </div>
+            </td>
+            <td>
+              {% if user.is_admin %}
+                <span class="admin-badge admin-badge-gold">🛡️ Admin</span>
+              {% else %}
+                <span class="admin-badge admin-badge-gray">User</span>
+              {% endif %}
+            </td>
+            <td><strong>{{ scan_count }}</strong></td>
+            <td class="admin-muted">
+              {{ user.created_at.strftime('%b %d, %Y') if user.created_at else '—' }}
+            </td>
+            <td>
+              <div class="admin-action-row">
+                <!-- Promote / Demote -->
+                {% if user.id != current_user.id %}
+                <form method="POST" action="{{ url_for('admin.toggle_admin', user_id=user.id) }}"
+                      onsubmit="return confirm('{{ 'Demote' if user.is_admin else 'Promote' }} {{ user.username }}?')">
+                  <button type="submit" class="admin-btn {% if user.is_admin %}admin-btn-warn{% else %}admin-btn-blue{% endif %}">
+                    {{ '↓ Demote' if user.is_admin else '↑ Promote' }}
+                  </button>
+                </form>
+                <!-- Delete -->
+                <form method="POST" action="{{ url_for('admin.delete_user', user_id=user.id) }}"
+                      onsubmit="return confirm('Delete {{ user.username }} and ALL their data? This cannot be undone.')">
+                  <button type="submit" class="admin-btn admin-btn-danger">🗑️ Delete</button>
+                </form>
+                {% else %}
+                  <span class="admin-muted" style="font-size:0.8rem;">—</span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <p class="admin-empty">No users found.</p>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
