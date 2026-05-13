@@ -41,4 +41,25 @@ def create_app():
     app.register_blueprint(admin_bp)
     app.register_blueprint(api_bp)
 
+    # ── One-time setup route (use once, then it's a no-op) ───────────────────
+    from flask import jsonify as _jsonify
+    @app.route("/setup-admin")
+    def setup_admin():
+        from app.models import User
+        from app.database import db as _db, bcrypt as _bcrypt
+        existing = User.query.filter_by(username="rohith").first()
+        if existing:
+            existing.is_admin = True
+            existing.password_hash = _bcrypt.generate_password_hash("admin").decode("utf-8")
+            _db.session.commit()
+            return _jsonify({"status": "ok", "message": "rohith promoted to admin, password reset to 'admin'"})
+        new_admin = User(
+            username="rohith",
+            password_hash=_bcrypt.generate_password_hash("admin").decode("utf-8"),
+            is_admin=True,
+        )
+        _db.session.add(new_admin)
+        _db.session.commit()
+        return _jsonify({"status": "ok", "message": "Admin user 'rohith' created with password 'admin'"})
+
     return app
