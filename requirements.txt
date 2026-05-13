@@ -1,0 +1,15 @@
+flask>=2.3.0
+tensorflow>=2.20.0
+transformers>=4.35.0
+Pillow>=10.0.0
+google-genai>=0.8.0
+python-dotenv>=1.0.0
+numpy>=1.24.0
+kaggle>=1.5.16
+reportlab>=4.0.0
+accelerate>=0.24.0
+rembg>=2.0.50
+onnxruntime>=1.14.0
+flask-sqlalchemy>=3.0.0
+flask-login>=0.6.2
+flask-bcrypt>=1.0.1

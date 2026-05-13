@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}CropGuard AI — About{% endblock %}
+{% block content %}
+<section class="about-section">
+  <div class="about-container">
+    <h1 class="section-title" style="margin-bottom: 2rem;">About CropGuard AI</h1>
+
+    <div class="about-grid">
+      <div class="card">
+        <h2 class="card-title">🎯 Project Goal</h2>
+        <p>CropGuard AI is an intelligent system that helps farmers identify crop diseases from leaf images using deep learning and provides expert advisory through Generative AI, helping reduce agricultural losses in rural and remote areas.</p>
+      </div>
+      <div class="card">
+        <h2 class="card-title">🧠 Technology Stack</h2>
+        <ul style="list-style:none; padding:0; line-height:2;">
+          <li>🔬 <strong>Model:</strong> MobileNetV2 (PlantVillage, 38 classes)</li>
+          <li>🤖 <strong>Advisory:</strong> Google Gemini 1.5 Flash</li>
+          <li>🌐 <strong>Backend:</strong> Python Flask</li>
+          <li>📊 <strong>Dataset:</strong> PlantVillage (50,000+ images)</li>
+          <li>📄 <strong>Reports:</strong> ReportLab PDF</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2 class="card-title">🌱 Supported Crops</h2>
+        <p>Apple, Blueberry, Cherry, Corn, Grape, Orange, Peach, Bell Pepper, Potato, Raspberry, Soybean, Squash, Strawberry, Tomato and more.</p>
+      </div>
+      <div class="card">
+        <h2 class="card-title">👥 Group 17</h2>
+        <p>This project was developed as part of the Agriculture Technology domain project — <strong>Crop Disease Detection and Advisory System</strong>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

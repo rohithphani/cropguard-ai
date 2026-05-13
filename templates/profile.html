@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Profile — CropGuard AI{% endblock %}
+{% block content %}
+
+<section class="profile-section">
+
+  <!-- Profile Header -->
+  <div class="profile-header">
+    <div class="profile-avatar">
+      <span class="avatar-letter">{{ current_user.username[0].upper() }}</span>
+      <span class="avatar-badge">🌿</span>
+    </div>
+    <div class="profile-info">
+      <h1 class="profile-username">{{ current_user.username }}</h1>
+      <p class="profile-meta">Member since · CropGuard AI</p>
+    </div>
+    <a href="{{ url_for('auth.logout') }}" class="btn-logout">Sign Out</a>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="profile-stats">
+    <div class="pstat-card">
+      <span class="pstat-number">{{ total_scans }}</span>
+      <span class="pstat-label">Total Scans</span>
+    </div>
+    <div class="pstat-divider"></div>
+    <div class="pstat-card">
+      <span class="pstat-number" style="color:var(--red)">{{ disease_count }}</span>
+      <span class="pstat-label">Diseases Found</span>
+    </div>
+    <div class="pstat-divider"></div>
+    <div class="pstat-card">
+      <span class="pstat-number" style="color:var(--green)">{{ healthy_count }}</span>
+      <span class="pstat-label">Healthy Crops</span>
+    </div>
+    <div class="pstat-divider"></div>
+    <div class="pstat-card">
+      <span class="pstat-number">{{ unique_crops }}</span>
+      <span class="pstat-label">Crop Types</span>
+    </div>
+  </div>
+
+  <!-- Two-column layout: Recent Activity + Top Crops -->
+  <div class="profile-grid">
+
+    <!-- Recent Scans -->
+    <div class="profile-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">📋 Recent Scans</h2>
+        {% if history %}
+        <a href="{{ url_for('main.history') }}" class="panel-link">View all →</a>
+        {% endif %}
+      </div>
+
+      {% if history %}
+        <div class="scan-list">
+          {% for item in history[:5] %}
+          <a href="{{ url_for('main.view_history_item', item_id=item.id) }}" class="scan-item">
+            <img src="{{ item.image_url }}" alt="{{ item.crop }}" class="scan-thumb" />
+            <div class="scan-info">
+              <span class="scan-crop">{{ item.crop }}</span>
+              <span class="scan-disease {% if item.disease == 'Healthy' %}scan-healthy{% else %}scan-diseased{% endif %}">
+                {{ item.disease }}
+              </span>
+              <span class="scan-date">{{ item.timestamp.strftime('%b %d, %Y') }}</span>
+            </div>
+            <span class="scan-arrow">›</span>
+          </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="panel-empty">
+          <span class="empty-icon">🔍</span>
+          <p>No scans yet.</p>
+          <a href="{{ url_for('main.index') }}" class="btn-primary" style="margin-top:1rem; width:auto; padding: 0.6rem 1.4rem; font-size:0.9rem;">Scan Your First Crop</a>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Top Crops Panel -->
+    <div class="profile-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">🌱 Crops Scanned</h2>
+      </div>
+
+      {% if crop_counts %}
+        <div class="crop-list">
+          {% set max_count = crop_counts[0][1] %}
+          {% for crop, count in crop_counts %}
+          <div class="crop-row">
+            <span class="crop-name">{{ crop }}</span>
+            <div class="crop-bar-bg">
+              <div class="crop-bar" style="width: {{ (count / max_count * 100)|int }}%"></div>
+            </div>
+            <span class="crop-count">{{ count }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="panel-empty">
+          <span class="empty-icon">🌾</span>
+          <p>Upload images to see crop breakdown.</p>
+        </div>
+      {% endif %}
+
+      <!-- Health Donut (CSS only) -->
+      {% if total_scans > 0 %}
+      <div class="health-summary">
+        <h3 class="health-title">Health Overview</h3>
+        <div class="donut-row">
+          <div class="donut-wrap">
+            <svg class="donut" viewBox="0 0 36 36">
+              <circle class="donut-bg" cx="18" cy="18" r="15.9" />
+              <circle class="donut-seg donut-healthy"
+                cx="18" cy="18" r="15.9"
+                stroke-dasharray="{{ (healthy_count / total_scans * 100)|int }} {{ 100 - (healthy_count / total_scans * 100)|int }}"
+                stroke-dashoffset="25" />
+            </svg>
+            <span class="donut-label">{{ (healthy_count / total_scans * 100)|int }}%<br><small>Healthy</small></span>
+          </div>
+          <div class="donut-legend">
+            <div class="legend-item"><span class="legend-dot" style="background:var(--green)"></span> Healthy ({{ healthy_count }})</div>
+            <div class="legend-item"><span class="legend-dot" style="background:var(--red)"></span> Diseased ({{ disease_count }})</div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</section>
+
+{% endblock %}

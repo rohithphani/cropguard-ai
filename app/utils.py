@@ -1,0 +1,135 @@
+"""Utility helpers: image validation, preprocessing, PDF report generation."""
+
+import os
+import uuid
+from PIL import Image, ImageOps
+from io import BytesIO
+import logging
+
+logger = logging.getLogger(__name__)
+
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "bmp"}
+
+
+def allowed_file(filename: str) -> bool:
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def save_uploaded_image(file_storage, upload_folder: str) -> tuple[str, str]:
+    """Save an uploaded FileStorage object. Returns (filename, full_path)."""
+    ext = file_storage.filename.rsplit(".", 1)[1].lower()
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    filepath = os.path.join(upload_folder, filename)
+    file_storage.save(filepath)
+    return filename, filepath
+
+
+def load_image(filepath: str) -> Image.Image:
+    """Open and auto-orient an image for model input."""
+    img = Image.open(filepath)
+    img = ImageOps.exif_transpose(img)  # Fix rotation from EXIF
+    return img.convert("RGB")
+
+
+def generate_pdf_report(prediction: dict, advisory: dict, image_path: str) -> bytes:
+    """Generate a PDF report and return raw bytes."""
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.platypus import (
+            SimpleDocTemplate, Paragraph, Spacer, Table,
+            TableStyle, HRFlowable, Image as RLImage
+        )
+        from reportlab.lib.units import cm
+        from io import BytesIO
+
+        buf = BytesIO()
+        doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=2*cm, rightMargin=2*cm,
+                                topMargin=2*cm, bottomMargin=2*cm)
+        styles = getSampleStyleSheet()
+
+        GREEN = colors.HexColor("#1B5E20")
+        LIGHT_GREEN = colors.HexColor("#E8F5E9")
+        RED = colors.HexColor("#B71C1C")
+        ORANGE = colors.HexColor("#E65100")
+
+        title_style = ParagraphStyle("Title", parent=styles["Title"],
+                                     textColor=GREEN, fontSize=20, spaceAfter=6)
+        h2_style = ParagraphStyle("H2", parent=styles["Heading2"],
+                                  textColor=GREEN, fontSize=13, spaceBefore=12, spaceAfter=4)
+        body_style = styles["BodyText"]
+        body_style.fontSize = 10
+
+        story = []
+
+        # Title
+        story.append(Paragraph("🌿 Crop Disease Detection Report", title_style))
+        story.append(HRFlowable(width="100%", thickness=2, color=GREEN))
+        story.append(Spacer(1, 0.3*cm))
+
+        # Uploaded Image
+        if os.path.exists(image_path):
+            try:
+                img = RLImage(image_path, width=6*cm, height=6*cm, kind="proportional")
+                story.append(img)
+                story.append(Spacer(1, 0.3*cm))
+            except Exception:
+                pass
+
+        # Prediction summary table
+        severity_color = {"None": GREEN, "Low": GREEN, "Medium": ORANGE, "High": RED}.get(
+            advisory.get("severity", "Medium"), ORANGE
+        )
+        summary_data = [
+            ["Crop", prediction.get("crop", "—")],
+            ["Detected Condition", prediction.get("disease", "—")],
+            ["Confidence", f"{prediction.get('confidence', 0):.1f}%"],
+            ["Status", advisory.get("status", "—")],
+            ["Severity", advisory.get("severity", "—")],
+        ]
+        t = Table(summary_data, colWidths=[4*cm, 13*cm])
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (0, -1), LIGHT_GREEN),
+            ("TEXTCOLOR", (0, 0), (0, -1), GREEN),
+            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.lightgrey),
+            ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#F1F8E9")]),
+            ("FONTSIZE", (0, 0), (-1, -1), 10),
+            ("PADDING", (0, 0), (-1, -1), 6),
+        ]))
+        story.append(t)
+        story.append(Spacer(1, 0.5*cm))
+
+        # Advisory sections
+        sections = [
+            ("Description", advisory.get("description", "")),
+            ("Symptoms", advisory.get("symptoms", "")),
+            ("Causes", advisory.get("causes", "")),
+            ("Treatment", advisory.get("treatment", "")),
+            ("Prevention", advisory.get("prevention", "")),
+        ]
+        for title, content in sections:
+            if content:
+                story.append(Paragraph(title, h2_style))
+                story.append(Paragraph(str(content), body_style))
+
+        # Recommendations
+        recs = advisory.get("recommendations", [])
+        if recs:
+            story.append(Paragraph("Recommendations", h2_style))
+            for i, rec in enumerate(recs, 1):
+                story.append(Paragraph(f"{i}. {rec}", body_style))
+
+        story.append(Spacer(1, 0.5*cm))
+        story.append(HRFlowable(width="100%", thickness=1, color=colors.lightgrey))
+        story.append(Paragraph(
+            "Generated by Crop Disease Detection & Advisory System — Group 17",
+            ParagraphStyle("Footer", parent=body_style, textColor=colors.grey, fontSize=8)
+        ))
+
+        doc.build(story)
+        return buf.getvalue()
+
+    except ImportError:
+        raise RuntimeError("reportlab is not installed. Run: pip install reportlab")

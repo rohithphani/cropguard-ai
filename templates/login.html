@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Login — CropGuard AI{% endblock %}
+{% block content %}
+
+<section class="auth-section">
+  <div class="auth-bg">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+  </div>
+
+  <div class="auth-card">
+    <!-- Logo -->
+    <div class="auth-logo">
+      <span class="auth-logo-icon">🌿</span>
+      <span class="auth-logo-text">CropGuard <span style="color:var(--green)">AI</span></span>
+    </div>
+
+    <h1 class="auth-title">Welcome back</h1>
+    <p class="auth-subtitle">Sign in to access your scan history and reports</p>
+
+    <form method="POST" class="auth-form" id="login-form">
+      <div class="form-group">
+        <label class="form-label" for="login-username">Username</label>
+        <div class="input-wrapper">
+          <span class="input-icon">👤</span>
+          <input
+            id="login-username"
+            type="text"
+            name="username"
+            class="form-input"
+            placeholder="Enter your username"
+            required
+            autocomplete="username"
+          />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="login-password">Password</label>
+        <div class="input-wrapper">
+          <span class="input-icon">🔒</span>
+          <input
+            id="login-password"
+            type="password"
+            name="password"
+            class="form-input"
+            placeholder="Enter your password"
+            required
+            autocomplete="current-password"
+          />
+          <button type="button" class="toggle-pw" onclick="togglePassword('login-password', this)" title="Show/hide password">👁</button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary btn-auth" id="login-btn">
+        <span class="btn-text">Sign In</span>
+        <span class="btn-icon">→</span>
+      </button>
+    </form>
+
+    <div class="auth-divider"><span>or</span></div>
+
+    <p class="auth-switch">
+      Don't have an account?
+      <a href="{{ url_for('auth.register') }}" class="auth-link">Create one free</a>
+    </p>
+  </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function togglePassword(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁';
+  }
+}
+
+document.getElementById('login-form').addEventListener('submit', function() {
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.querySelector('.btn-text').textContent = 'Signing in…';
+  btn.querySelector('.btn-icon').innerHTML = '<svg class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>';
+});
+</script>
+{% endblock %}

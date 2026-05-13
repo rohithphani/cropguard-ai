@@ -1,0 +1,68 @@
+# ─── Secrets & Environment ───────────────────────────────────────────────────
+.env
+*.env
+!.env.example
+
+# ─── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+
+# ─── Virtual Environment ─────────────────────────────────────────────────────
+venv/
+env/
+.venv/
+ENV/
+
+# ─── Flask / SQLite ──────────────────────────────────────────────────────────
+instance/
+*.db
+*.sqlite3
+flask_session/
+
+# ─── ML Model Files (large binaries) ─────────────────────────────────────────
+*.keras
+*.h5
+*.pkl
+*.pt
+*.pth
+*.onnx
+*.pb
+*.tflite
+*.joblib
+models/*.keras
+models/*.h5
+
+# ─── Jupyter Notebooks checkpoints ───────────────────────────────────────────
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+
+# ─── Data (usually large / sensitive) ────────────────────────────────────────
+data/raw/
+data/processed/
+data/plantvillage/
+*.csv
+*.parquet
+*.npy
+*.npz
+
+# ─── Uploads / temp files ────────────────────────────────────────────────────
+app/static/uploads/
+uploads/
+*.tmp
+
+# ─── OS & Editor ─────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ─── Build / Dist ─────────────────────────────────────────────────────────────
+dist/
+build/
+*.egg-info/

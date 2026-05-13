@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Create Account — CropGuard AI{% endblock %}
+{% block content %}
+
+<section class="auth-section">
+  <div class="auth-bg">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+  </div>
+
+  <div class="auth-card">
+    <!-- Logo -->
+    <div class="auth-logo">
+      <span class="auth-logo-icon">🌿</span>
+      <span class="auth-logo-text">CropGuard <span style="color:var(--green)">AI</span></span>
+    </div>
+
+    <h1 class="auth-title">Create your account</h1>
+    <p class="auth-subtitle">Join to save your scan history and download PDF reports</p>
+
+    <form method="POST" class="auth-form" id="register-form">
+      <div class="form-group">
+        <label class="form-label" for="reg-username">Username</label>
+        <div class="input-wrapper">
+          <span class="input-icon">👤</span>
+          <input
+            id="reg-username"
+            type="text"
+            name="username"
+            class="form-input"
+            placeholder="Choose a username"
+            required
+            minlength="3"
+            maxlength="20"
+            autocomplete="username"
+            oninput="checkUsername(this)"
+          />
+        </div>
+        <p class="form-hint" id="username-hint">3–20 characters</p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="reg-password">Password</label>
+        <div class="input-wrapper">
+          <span class="input-icon">🔒</span>
+          <input
+            id="reg-password"
+            type="password"
+            name="password"
+            class="form-input"
+            placeholder="Create a password"
+            required
+            minlength="6"
+            autocomplete="new-password"
+            oninput="checkStrength(this.value)"
+          />
+          <button type="button" class="toggle-pw" onclick="togglePassword('reg-password', this)" title="Show/hide password">👁</button>
+        </div>
+        <!-- Password strength bar -->
+        <div class="strength-bar-bg" id="strength-bg" style="display:none">
+          <div class="strength-bar" id="strength-bar"></div>
+        </div>
+        <p class="form-hint" id="strength-label"></p>
+      </div>
+
+      <!-- Perks list -->
+      <ul class="auth-perks">
+        <li class="perk-item"><span class="perk-check">✅</span> Save unlimited scan history</li>
+        <li class="perk-item"><span class="perk-check">✅</span> Download PDF reports anytime</li>
+        <li class="perk-item"><span class="perk-check">✅</span> Track disease trends over time</li>
+      </ul>
+
+      <button type="submit" class="btn-primary btn-auth" id="reg-btn">
+        <span class="btn-text">Create Account</span>
+        <span class="btn-icon">→</span>
+      </button>
+    </form>
+
+    <div class="auth-divider"><span>or</span></div>
+
+    <p class="auth-switch">
+      Already have an account?
+      <a href="{{ url_for('auth.login') }}" class="auth-link">Sign in</a>
+    </p>
+  </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function togglePassword(inputId, btn) {
+  const input = document.getElementById(inputId);
+  input.type = input.type === 'password' ? 'text' : 'password';
+  btn.textContent = input.type === 'password' ? '👁' : '🙈';
+}
+
+function checkUsername(input) {
+  const hint = document.getElementById('username-hint');
+  const len = input.value.length;
+  if (len < 3) { hint.style.color = 'var(--red)'; hint.textContent = `Too short (${len}/3 min)`; }
+  else if (len > 20) { hint.style.color = 'var(--red)'; hint.textContent = 'Too long (20 max)'; }
+  else { hint.style.color = 'var(--green)'; hint.textContent = `Looks good! (${len} chars)`; }
+}
+
+function checkStrength(val) {
+  const bar = document.getElementById('strength-bar');
+  const label = document.getElementById('strength-label');
+  const bg = document.getElementById('strength-bg');
+  if (!val) { bg.style.display = 'none'; label.textContent = ''; return; }
+  bg.style.display = 'block';
+
+  let score = 0;
+  if (val.length >= 8) score++;
+  if (/[A-Z]/.test(val)) score++;
+  if (/[0-9]/.test(val)) score++;
+  if (/[^A-Za-z0-9]/.test(val)) score++;
+
+  const levels = [
+    { pct: '25%', color: 'var(--red)',    text: 'Weak' },
+    { pct: '50%', color: 'var(--orange)', text: 'Fair' },
+    { pct: '75%', color: 'var(--mint)',   text: 'Good' },
+    { pct: '100%',color: 'var(--green)',  text: 'Strong' },
+  ];
+  const lvl = levels[Math.min(score, 3)];
+  bar.style.width = lvl.pct;
+  bar.style.background = lvl.color;
+  label.style.color = lvl.color;
+  label.textContent = lvl.text + ' password';
+}
+
+document.getElementById('register-form').addEventListener('submit', function() {
+  const btn = document.getElementById('reg-btn');
+  btn.disabled = true;
+  btn.querySelector('.btn-text').textContent = 'Creating account…';
+  btn.querySelector('.btn-icon').innerHTML = '<svg class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>';
+});
+</script>
+{% endblock %}

@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}CropGuard AI — Results{% endblock %}
+
+{% block content %}
+<section class="result-section">
+  <div class="result-container">
+
+    <!-- Back Button -->
+    <a href="{{ url_for('main.index') }}" class="btn-back">
+      ← Analyze Another Leaf
+    </a>
+
+    <!-- Status Banner -->
+    <div class="status-banner {{ 'banner-healthy' if prediction.is_healthy else 'banner-diseased' }}">
+      <span class="status-icon">{{ '✅' if prediction.is_healthy else '⚠️' }}</span>
+      <div>
+        <p class="status-label">{{ 'Plant is Healthy' if prediction.is_healthy else 'Disease Detected' }}</p>
+        <p class="status-crop">{{ prediction.crop }}</p>
+      </div>
+      <div class="severity-badge severity-{{ advisory.severity | lower }}">
+        Severity: {{ advisory.severity }}
+      </div>
+    </div>
+
+    <!-- Low-confidence warning (Tier 2 or 3) -->
+    {% if prediction.tier >= 2 %}
+    <div class="confidence-warning">
+      <div class="cw-icon">🔍</div>
+      <div class="cw-body">
+        <p class="cw-title">
+          {% if prediction.tier == 3 %}Low Confidence Result ({{ prediction.confidence }}%){% else %}Moderate Confidence Result ({{ prediction.confidence }}%){% endif %}
+        </p>
+        <p class="cw-text">
+          This prediction may not be accurate. Real-world photos with complex backgrounds,
+          poor lighting, or unusual angles can reduce accuracy. For best results:
+        </p>
+        <ul class="cw-tips">
+          <li>📸 Use a <strong>close-up</strong> photo of a single leaf</li>
+          <li>☀️ Ensure <strong>good, even lighting</strong> (natural daylight works best)</li>
+          <li>🌿 Place the leaf on a <strong>plain background</strong> (white paper, soil)</li>
+          <li>🎯 Centre the <strong>diseased area</strong> in the frame</li>
+        </ul>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="result-grid">
+
+      <!-- Left Column: Image + Prediction -->
+      <div class="result-left">
+
+        <!-- Uploaded Image -->
+        <div class="card">
+          <h2 class="card-title">Uploaded Image</h2>
+          <div class="image-container">
+            <img src="{{ image_url }}" alt="Uploaded leaf image" class="result-image" />
+          </div>
+        </div>
+
+        <!-- Prediction Details -->
+        <div class="card">
+          <h2 class="card-title">Detection Result</h2>
+
+          <div class="prediction-row">
+            <span class="pred-label">Crop</span>
+            <span class="pred-value crop-badge">{{ prediction.crop }}</span>
+          </div>
+          <div class="prediction-row">
+            <span class="pred-label">Condition</span>
+            <span class="pred-value {{ 'healthy-text' if prediction.is_healthy else 'disease-text' }}">
+              {{ prediction.disease }}
+            </span>
+          </div>
+
+          {% if prediction.gemini_enhanced %}
+          <div class="gemini-vision-badge">
+            <span>🤖</span>
+            <div>
+              <strong>Gemini Vision Enhanced</strong>
+              {% if prediction.gemini_reasoning %}
+              <p class="gemini-reasoning">{{ prediction.gemini_reasoning }}</p>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Confidence Meter -->
+          <div class="confidence-section">
+            <div class="conf-header">
+              <span>Confidence</span>
+              <span class="conf-value">{{ prediction.confidence }}%</span>
+            </div>
+            <div class="conf-bar-bg">
+              <div class="conf-bar" style="width: {{ prediction.confidence }}%"
+                   data-width="{{ prediction.confidence }}"></div>
+            </div>
+          </div>
+
+          <!-- Top-5 Predictions -->
+          <details class="top5-details">
+            <summary>Top 5 Predictions</summary>
+            <ul class="top5-list">
+              {% for pred in prediction.top_predictions %}
+              <li class="top5-item">
+                <span class="top5-label">{{ pred.label }}</span>
+                <div class="top5-bar-bg">
+                  <div class="top5-bar" style="width: {{ pred.probability }}%"></div>
+                </div>
+                <span class="top5-pct">{{ pred.probability }}%</span>
+              </li>
+              {% endfor %}
+            </ul>
+          </details>
+        </div>
+
+        <!-- Download PDF -->
+        <a href="{{ url_for('main.download_report') }}" class="btn-primary btn-download">
+          <span>📄</span> Download PDF Report
+        </a>
+
+      </div>
+
+      <!-- Right Column: Advisory -->
+      <div class="result-right">
+        <div class="card advisory-card">
+          <h2 class="card-title">🤖 AI Advisory <span class="gemini-tag">Gemini</span></h2>
+
+          <p class="advisory-description">{{ advisory.description }}</p>
+
+          {% if not prediction.is_healthy %}
+          <div class="advisory-section">
+            <div class="advisory-section-header">
+              <span class="advisory-icon">👁️</span>
+              <h3>Symptoms</h3>
+            </div>
+            <p>{{ advisory.symptoms }}</p>
+          </div>
+
+          <div class="advisory-section">
+            <div class="advisory-section-header">
+              <span class="advisory-icon">🔬</span>
+              <h3>Causes</h3>
+            </div>
+            <p>{{ advisory.causes }}</p>
+          </div>
+
+          <div class="advisory-section advisory-treatment">
+            <div class="advisory-section-header">
+              <span class="advisory-icon">💊</span>
+              <h3>Treatment</h3>
+            </div>
+            <p>{{ advisory.treatment }}</p>
+          </div>
+          {% endif %}
+
+          <div class="advisory-section advisory-prevention">
+            <div class="advisory-section-header">
+              <span class="advisory-icon">🛡️</span>
+              <h3>Prevention</h3>
+            </div>
+            <p>{{ advisory.prevention }}</p>
+          </div>
+
+          <!-- Recommendations -->
+          {% if advisory.recommendations %}
+          <div class="advisory-section">
+            <div class="advisory-section-header">
+              <span class="advisory-icon">✅</span>
+              <h3>Action Recommendations</h3>
+            </div>
+            <ol class="recommendations-list">
+              {% for rec in advisory.recommendations %}
+              <li class="rec-item">
+                <span class="rec-num">{{ loop.index }}</span>
+                <span>{{ rec }}</span>
+              </li>
+              {% endfor %}
+            </ol>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Animate confidence bar on load
+  document.addEventListener("DOMContentLoaded", () => {
+    const bar = document.querySelector(".conf-bar");
+    if (bar) {
+      const target = bar.dataset.width;
+      bar.style.width = "0%";
+      setTimeout(() => { bar.style.width = target + "%"; }, 100);
+    }
+  });
+</script>
+{% endblock %}
