@@ -56,7 +56,15 @@
                 <span class="admin-badge admin-badge-green">Active</span>
               {% endif %}
             </td>
-            <td><strong>{{ scan_count }}</strong></td>
+            <td>
+              {% if scan_count > 0 %}
+                <a href="{{ url_for('admin.history', user_id=user.id) }}" style="text-decoration: none; font-weight: bold; color: var(--green);">
+                  {{ scan_count }} ↗
+                </a>
+              {% else %}
+                <strong>0</strong>
+              {% endif %}
+            </td>
             <td class="admin-muted">
               {{ user.created_at.strftime('%b %d, %Y') if user.created_at else '—' }}
             </td>

@@ -6,7 +6,11 @@
 
   <div class="admin-page-header">
     <div>
-      <h1 class="admin-page-title">📋 All Scan History</h1>
+      {% if filter_user %}
+        <h1 class="admin-page-title">📋 Scan History: {{ filter_user.username }}</h1>
+      {% else %}
+        <h1 class="admin-page-title">📋 All Scan History</h1>
+      {% endif %}
       <p class="admin-page-sub">{{ pagination.total }} total scan record{{ 's' if pagination.total != 1 }}</p>
     </div>
     <a href="{{ url_for('admin.export_history') }}" class="admin-btn admin-btn-blue">
@@ -18,9 +22,12 @@
   <form method="GET" class="admin-search-row">
     <input type="text" name="q" value="{{ search }}" placeholder="Search by user, crop, or disease…"
            class="admin-search-input" id="admin-history-search" />
+    {% if filter_user %}
+      <input type="hidden" name="user_id" value="{{ filter_user.id }}" />
+    {% endif %}
     <button type="submit" class="admin-btn admin-btn-blue">Search</button>
-    {% if search %}
-      <a href="{{ url_for('admin.history') }}" class="admin-btn admin-btn-gray">Clear</a>
+    {% if search or filter_user %}
+      <a href="{{ url_for('admin.history') }}" class="admin-btn admin-btn-gray">Clear Filters</a>
     {% endif %}
   </form>
 
@@ -43,7 +50,11 @@
           {% for scan, username in pagination.items %}
           <tr>
             <td class="admin-muted">{{ scan.id }}</td>
-            <td><span class="admin-user-chip">{{ username }}</span></td>
+            <td>
+              <a href="{{ url_for('admin.history', user_id=scan.user_id) }}" class="admin-user-chip" style="text-decoration: none;">
+                {{ username }}
+              </a>
+            </td>
             <td>{{ scan.crop }}</td>
             <td>{{ scan.disease }}</td>
             <td>

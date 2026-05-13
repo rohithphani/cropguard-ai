@@ -94,7 +94,11 @@
         <tbody>
           {% for scan in recent_scans %}
           <tr>
-            <td><span class="admin-user-chip">{{ scan.author.username }}</span></td>
+            <td>
+              <a href="{{ url_for('admin.history', user_id=scan.author.id) }}" class="admin-user-chip" style="text-decoration: none;">
+                {{ scan.author.username }}
+              </a>
+            </td>
             <td>{{ scan.crop }}</td>
             <td>{{ scan.disease }}</td>
             <td>

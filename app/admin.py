@@ -231,6 +231,7 @@ def api_stats():
 def history():
     page = request.args.get("page", 1, type=int)
     search = request.args.get("q", "").strip()
+    user_id = request.args.get("user_id", type=int)
 
     query = (
         History.query
@@ -238,6 +239,11 @@ def history():
         .add_columns(User.username)
         .order_by(History.timestamp.desc())
     )
+
+    filter_user = None
+    if user_id:
+        query = query.filter(History.user_id == user_id)
+        filter_user = User.query.get(user_id)
 
     if search:
         query = query.filter(
@@ -247,7 +253,7 @@ def history():
         )
 
     pagination = query.paginate(page=page, per_page=20, error_out=False)
-    return render_template("admin/history.html", pagination=pagination, search=search)
+    return render_template("admin/history.html", pagination=pagination, search=search, filter_user=filter_user)
 
 
 @admin_bp.route("/history/<int:item_id>/delete", methods=["POST"])
