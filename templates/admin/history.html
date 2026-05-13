@@ -9,6 +9,9 @@
       <h1 class="admin-page-title">📋 All Scan History</h1>
       <p class="admin-page-sub">{{ pagination.total }} total scan record{{ 's' if pagination.total != 1 }}</p>
     </div>
+    <a href="{{ url_for('admin.export_history') }}" class="admin-btn admin-btn-blue">
+      ⬇️ Export CSV
+    </a>
   </div>
 
   <!-- Search -->

@@ -9,6 +9,9 @@
       <h1 class="admin-page-title">👥 User Management</h1>
       <p class="admin-page-sub">{{ all_users|length }} registered user{{ 's' if all_users|length != 1 }}</p>
     </div>
+    <a href="{{ url_for('admin.export_users') }}" class="admin-btn admin-btn-blue">
+      ⬇️ Export CSV
+    </a>
   </div>
 
   <div class="admin-panel">
@@ -20,6 +23,7 @@
             <th>#</th>
             <th>Username</th>
             <th>Role</th>
+            <th>Status</th>
             <th>Scans</th>
             <th>Joined</th>
             <th>Actions</th>
@@ -45,29 +49,43 @@
                 <span class="admin-badge admin-badge-gray">User</span>
               {% endif %}
             </td>
+            <td>
+              {% if user.is_banned %}
+                <span class="admin-badge admin-badge-red">🚫 Banned</span>
+              {% else %}
+                <span class="admin-badge admin-badge-green">Active</span>
+              {% endif %}
+            </td>
             <td><strong>{{ scan_count }}</strong></td>
             <td class="admin-muted">
               {{ user.created_at.strftime('%b %d, %Y') if user.created_at else '—' }}
             </td>
             <td>
+              {% if user.id != current_user.id %}
               <div class="admin-action-row">
                 <!-- Promote / Demote -->
-                {% if user.id != current_user.id %}
                 <form method="POST" action="{{ url_for('admin.toggle_admin', user_id=user.id) }}"
                       onsubmit="return confirm('{{ 'Demote' if user.is_admin else 'Promote' }} {{ user.username }}?')">
                   <button type="submit" class="admin-btn {% if user.is_admin %}admin-btn-warn{% else %}admin-btn-blue{% endif %}">
-                    {{ '↓ Demote' if user.is_admin else '↑ Promote' }}
+                    {{ '↓ Demote' if user.is_admin else '↑ Admin' }}
+                  </button>
+                </form>
+                <!-- Ban / Unban -->
+                <form method="POST" action="{{ url_for('admin.toggle_ban', user_id=user.id) }}"
+                      onsubmit="return confirm('{{ 'Unban' if user.is_banned else 'Suspend' }} {{ user.username }}?')">
+                  <button type="submit" class="admin-btn {% if user.is_banned %}admin-btn-blue{% else %}admin-btn-warn{% endif %}">
+                    {{ '✅ Unban' if user.is_banned else '🚫 Ban' }}
                   </button>
                 </form>
                 <!-- Delete -->
                 <form method="POST" action="{{ url_for('admin.delete_user', user_id=user.id) }}"
                       onsubmit="return confirm('Delete {{ user.username }} and ALL their data? This cannot be undone.')">
-                  <button type="submit" class="admin-btn admin-btn-danger">🗑️ Delete</button>
+                  <button type="submit" class="admin-btn admin-btn-danger">🗑️</button>
                 </form>
-                {% else %}
-                  <span class="admin-muted" style="font-size:0.8rem;">—</span>
-                {% endif %}
               </div>
+              {% else %}
+                <span class="admin-muted" style="font-size:0.8rem;">—</span>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}

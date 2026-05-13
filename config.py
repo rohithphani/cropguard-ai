@@ -6,6 +6,7 @@ load_dotenv()
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+    API_KEY = os.getenv("API_KEY", "cropguard-api-key-change-me")
 
     # HuggingFace model for PlantVillage 38-class classification
     MODEL_NAME = "linkanjarad/mobilenet_v2_1.0_224-plant-disease-identification"

@@ -22,8 +22,10 @@ def create_app():
     from app.routes import main
     from app.auth import auth
     from app.admin import admin_bp
+    from app.api import api_bp
     app.register_blueprint(main)
     app.register_blueprint(auth)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(api_bp)
 
     return app

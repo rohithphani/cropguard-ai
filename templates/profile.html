@@ -128,6 +128,46 @@
     </div>
 
   </div>
+
+  <!-- Change Password Panel -->
+  <div class="profile-panel" style="margin-top: 1.5rem;">
+    <div class="panel-header">
+      <h2 class="panel-title">🔑 Change Password</h2>
+    </div>
+    <form method="POST" action="{{ url_for('auth.change_password') }}"
+          style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:1rem; align-items:end;">
+      <div class="form-group">
+        <label class="form-label">Current Password</label>
+        <div class="input-wrapper">
+          <span class="input-icon">🔒</span>
+          <input type="password" name="current_password" class="form-input"
+                 id="profile-current-pw" placeholder="Current password" required />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">New Password</label>
+        <div class="input-wrapper">
+          <span class="input-icon">✨</span>
+          <input type="password" name="new_password" class="form-input"
+                 id="profile-new-pw" placeholder="Min. 6 characters" required minlength="6" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirm New Password</label>
+        <div class="input-wrapper">
+          <span class="input-icon">✅</span>
+          <input type="password" name="confirm_password" class="form-input"
+                 id="profile-confirm-pw" placeholder="Repeat new password" required />
+        </div>
+      </div>
+      <div>
+        <button type="submit" class="btn-primary" style="margin-top:0; padding:0.75rem 1.5rem; width:auto;">
+          Update Password
+        </button>
+      </div>
+    </form>
+  </div>
+
 </section>
 
 {% endblock %}

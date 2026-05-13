@@ -43,58 +43,38 @@
     </div>
   </div>
 
-  <!-- ── Bottom Grid ── -->
-  <div class="admin-two-col">
+  <!-- ── Charts Row ── -->
+  <div class="admin-two-col" style="margin-bottom:1.5rem;">
 
-    <!-- Top Diseases -->
+    <!-- Daily Scans Line Chart -->
     <div class="admin-panel">
       <div class="admin-panel-header">
-        <h2 class="admin-panel-title">🦠 Top Detected Diseases</h2>
+        <h2 class="admin-panel-title">📈 Scans — Last 14 Days</h2>
       </div>
-      {% if top_diseases %}
-        <div class="atop-list">
-          {% set max_cnt = top_diseases[0].cnt if top_diseases else 1 %}
-          {% for disease, cnt in top_diseases %}
-          <div class="atop-row">
-            <div class="atop-label">{{ disease }}</div>
-            <div class="atop-bar-bg">
-              <div class="atop-bar atop-bar-red" style="width: {{ (cnt / max_cnt * 100)|int }}%"></div>
-            </div>
-            <div class="atop-count">{{ cnt }}</div>
-          </div>
-          {% endfor %}
-        </div>
-      {% else %}
-        <p class="admin-empty">No scan data yet.</p>
-      {% endif %}
+      <canvas id="dailyChart" height="160"></canvas>
     </div>
 
-    <!-- Top Crops -->
-    <div class="admin-panel">
+    <!-- Healthy vs Disease Doughnut -->
+    <div class="admin-panel" style="display:flex; flex-direction:column;">
       <div class="admin-panel-header">
-        <h2 class="admin-panel-title">🌿 Most Scanned Crops</h2>
+        <h2 class="admin-panel-title">🥧 Healthy vs Disease Ratio</h2>
       </div>
-      {% if top_crops %}
-        <div class="atop-list">
-          {% set max_cnt = top_crops[0].cnt if top_crops else 1 %}
-          {% for crop, cnt in top_crops %}
-          <div class="atop-row">
-            <div class="atop-label">{{ crop }}</div>
-            <div class="atop-bar-bg">
-              <div class="atop-bar atop-bar-green" style="width: {{ (cnt / max_cnt * 100)|int }}%"></div>
-            </div>
-            <div class="atop-count">{{ cnt }}</div>
-          </div>
-          {% endfor %}
-        </div>
-      {% else %}
-        <p class="admin-empty">No scan data yet.</p>
-      {% endif %}
+      <div style="flex:1; display:flex; align-items:center; justify-content:center;">
+        <canvas id="ratioChart" style="max-height:200px; max-width:200px;"></canvas>
+      </div>
     </div>
   </div>
 
+  <!-- ── Top Diseases Bar Chart ── -->
+  <div class="admin-panel" style="margin-bottom:1.5rem;">
+    <div class="admin-panel-header">
+      <h2 class="admin-panel-title">🦠 Top Detected Diseases</h2>
+    </div>
+    <canvas id="diseasesChart" height="100"></canvas>
+  </div>
+
   <!-- ── Recent Scans ── -->
-  <div class="admin-panel" style="margin-top: 1.5rem;">
+  <div class="admin-panel">
     <div class="admin-panel-header">
       <h2 class="admin-panel-title">🕐 Recent Scans</h2>
       <a href="{{ url_for('admin.history') }}" class="admin-view-all">View All →</a>
@@ -136,4 +116,98 @@
   </div>
 
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  // Shared chart defaults
+  Chart.defaults.color = 'rgba(232,245,233,0.55)';
+  Chart.defaults.borderColor = 'rgba(255,255,255,0.08)';
+  Chart.defaults.font.family = "'Inter', sans-serif";
+
+  const GREEN      = '#00e676';
+  const RED        = '#ff5252';
+  const TEAL       = '#00bfa5';
+  const PURPLE     = '#ce93d8';
+  const BLUE       = '#93c5fd';
+
+  fetch("{{ url_for('admin.api_stats') }}")
+    .then(r => r.json())
+    .then(data => {
+
+      // ── Daily Scans Line Chart ──────────────────────────
+      new Chart(document.getElementById('dailyChart'), {
+        type: 'line',
+        data: {
+          labels: data.daily.labels,
+          datasets: [{
+            label: 'Scans',
+            data: data.daily.data,
+            borderColor: GREEN,
+            backgroundColor: 'rgba(0,230,118,0.08)',
+            pointBackgroundColor: GREEN,
+            pointRadius: 4,
+            tension: 0.4,
+            fill: true,
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.05)' } },
+            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { precision: 0 } }
+          }
+        }
+      });
+
+      // ── Doughnut Ratio ───────────────────────────────────
+      new Chart(document.getElementById('ratioChart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Healthy', 'Disease'],
+          datasets: [{
+            data: [data.ratio.healthy, data.ratio.disease],
+            backgroundColor: ['rgba(0,230,118,0.75)', 'rgba(255,82,82,0.75)'],
+            borderColor: ['rgba(0,230,118,0.3)', 'rgba(255,82,82,0.3)'],
+            borderWidth: 1,
+          }]
+        },
+        options: {
+          responsive: true,
+          cutout: '65%',
+          plugins: {
+            legend: { position: 'bottom', labels: { padding: 16, pointStyle: 'circle', usePointStyle: true } }
+          }
+        }
+      });
+
+      // ── Top Diseases Bar Chart ───────────────────────────
+      if (data.top_diseases.labels.length > 0) {
+        new Chart(document.getElementById('diseasesChart'), {
+          type: 'bar',
+          data: {
+            labels: data.top_diseases.labels,
+            datasets: [{
+              label: 'Scans',
+              data: data.top_diseases.data,
+              backgroundColor: 'rgba(255,82,82,0.5)',
+              borderColor: 'rgba(255,82,82,0.8)',
+              borderWidth: 1,
+              borderRadius: 6,
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { grid: { display: false } },
+              y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: 'rgba(255,255,255,0.05)' } }
+            }
+          }
+        });
+      }
+    });
+</script>
 {% endblock %}

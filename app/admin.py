@@ -1,7 +1,10 @@
 """Admin blueprint for CropGuard AI — full control panel."""
 
+import csv
+import io
+from datetime import datetime, timedelta
 from functools import wraps
-from flask import Blueprint, render_template, redirect, url_for, flash, request, abort
+from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, Response, jsonify
 from flask_login import current_user, login_required
 from app.database import db, bcrypt
 from app.models import User, History
@@ -110,13 +113,115 @@ def delete_user(user_id):
 def toggle_admin(user_id):
     user = User.query.get_or_404(user_id)
     if user.id == current_user.id:
-        flash("❌ You cannot change your own admin status.", "error")
+        flash("You cannot change your own admin status.", "error")
         return redirect(url_for("admin.users"))
     user.is_admin = not user.is_admin
     db.session.commit()
     status = "promoted to Admin" if user.is_admin else "demoted to User"
-    flash(f"✅ '{user.username}' has been {status}.", "success")
+    flash(f"'{user.username}' has been {status}.", "success")
     return redirect(url_for("admin.users"))
+
+
+@admin_bp.route("/users/<int:user_id>/toggle-ban", methods=["POST"])
+@admin_required
+def toggle_ban(user_id):
+    user = User.query.get_or_404(user_id)
+    if user.id == current_user.id:
+        flash("You cannot ban your own account.", "error")
+        return redirect(url_for("admin.users"))
+    user.is_banned = not user.is_banned
+    db.session.commit()
+    status = "suspended" if user.is_banned else "reinstated"
+    flash(f"'{user.username}' has been {status}.", "success")
+    return redirect(url_for("admin.users"))
+
+
+# ─── CSV Export ───────────────────────────────────────────────────────────────
+
+@admin_bp.route("/export/users")
+@admin_required
+def export_users():
+    users = User.query.order_by(User.id).all()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["ID", "Username", "Email", "Admin", "Banned", "Joined"])
+    for u in users:
+        writer.writerow([
+            u.id, u.username, u.email or "",
+            "Yes" if u.is_admin else "No",
+            "Yes" if u.is_banned else "No",
+            u.created_at.strftime("%Y-%m-%d") if u.created_at else ""
+        ])
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment;filename=users_export.csv"}
+    )
+
+
+@admin_bp.route("/export/history")
+@admin_required
+def export_history():
+    records = (
+        History.query
+        .join(User, History.user_id == User.id)
+        .add_columns(User.username)
+        .order_by(History.timestamp.desc())
+        .all()
+    )
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["ID", "User", "Crop", "Disease", "Status", "Timestamp"])
+    for scan, username in records:
+        writer.writerow([
+            scan.id, username, scan.crop, scan.disease,
+            "Healthy" if scan.disease.lower() == "healthy" else "Disease",
+            scan.timestamp.strftime("%Y-%m-%d %H:%M")
+        ])
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment;filename=history_export.csv"}
+    )
+
+
+# ─── Chart.js Stats API ───────────────────────────────────────────────────────
+
+@admin_bp.route("/api/stats")
+@admin_required
+def api_stats():
+    """JSON endpoint for Chart.js dashboard charts."""
+    # Scans per day — last 14 days
+    today = datetime.utcnow().date()
+    labels, scan_data = [], []
+    for i in range(13, -1, -1):
+        day = today - timedelta(days=i)
+        count = History.query.filter(
+            func.date(History.timestamp) == day
+        ).count()
+        labels.append(day.strftime("%b %d"))
+        scan_data.append(count)
+
+    # Disease vs Healthy
+    total   = History.query.count()
+    healthy = History.query.filter(func.lower(History.disease) == "healthy").count()
+    disease = total - healthy
+
+    # Top 8 diseases
+    top = (
+        db.session.query(History.disease, func.count(History.id).label("cnt"))
+        .group_by(History.disease)
+        .order_by(func.count(History.id).desc())
+        .limit(8).all()
+    )
+
+    return jsonify({
+        "daily": {"labels": labels, "data": scan_data},
+        "ratio": {"healthy": healthy, "disease": disease},
+        "top_diseases": {"labels": [r[0] for r in top], "data": [r[1] for r in top]}
+    })
 
 
 # ─── History Management ───────────────────────────────────────────────────────

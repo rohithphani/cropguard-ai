@@ -1,34 +1,78 @@
 {% extends "base.html" %}
 {% block title %}My History — CropGuard AI{% endblock %}
 {% block content %}
-<div style="max-width: 1000px; margin: 4rem auto; background: var(--bg-surface); padding: 2rem; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 8px 32px rgba(0,0,0,0.3);">
-  <h2 style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
-    <span>My Diagnostic History</span>
-    <span style="font-size: 1rem; color: var(--text-secondary); font-weight: normal;">{{ current_user.username }}</span>
-  </h2>
-  
-  {% if history|length == 0 %}
-    <div style="text-align: center; padding: 3rem; color: var(--text-secondary);">
-      <p style="margin-bottom: 1rem;">You haven't analyzed any crops yet.</p>
-      <a href="{{ url_for('main.index') }}" class="btn-primary" style="display: inline-block; text-decoration: none;">Scan a Crop</a>
+
+<section style="max-width: 1100px; margin: 3rem auto; padding: 0 1.5rem;">
+
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:2rem;">
+    <div>
+      <h1 style="font-family:'Outfit',sans-serif; font-size:1.8rem; font-weight:800; margin-bottom:0.2rem;">📋 My Scan History</h1>
+      <p style="color:var(--text-muted); font-size:0.9rem;">{{ history|length }} scan{{ 's' if history|length != 1 }}</p>
     </div>
+    <a href="{{ url_for('main.index') }}" class="btn-back">← New Scan</a>
+  </div>
+
+  {% if history|length == 0 %}
+    <div style="text-align:center; padding:5rem 2rem; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);">
+      <div style="font-size:3rem; margin-bottom:1rem;">🔍</div>
+      <p style="color:var(--text-muted); margin-bottom:1.5rem;">You haven't analyzed any crops yet.</p>
+      <a href="{{ url_for('main.index') }}" class="btn-primary" style="display:inline-flex; width:auto; padding:0.8rem 2rem; text-decoration:none;">Scan Your First Crop</a>
+    </div>
+
   {% else %}
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:1.5rem;">
       {% for item in history %}
-      <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column;">
-        <img src="{{ item.image_url }}" alt="Crop" style="width: 100%; height: 200px; object-fit: cover; border-bottom: 1px solid var(--border-color);">
-        <div style="padding: 1.5rem; flex-grow: 1; display: flex; flex-direction: column;">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-            <span style="background: rgba(0, 230, 118, 0.1); color: var(--accent-primary); padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">{{ item.crop }}</span>
-            <span style="color: var(--text-secondary); font-size: 0.8rem;">{{ item.timestamp.strftime('%Y-%m-%d %H:%M') }}</span>
+      <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; display:flex; flex-direction:column; transition:var(--transition);"
+           onmouseenter="this.style.borderColor='var(--border-h)'"
+           onmouseleave="this.style.borderColor='var(--border)'">
+
+        <!-- Image -->
+        <img src="{{ item.image_url }}" alt="{{ item.crop }}"
+             style="width:100%; height:180px; object-fit:cover; border-bottom:1px solid var(--border);">
+
+        <div style="padding:1.25rem; flex-grow:1; display:flex; flex-direction:column; gap:0.5rem;">
+          <!-- Crop + Date -->
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span class="crop-badge">{{ item.crop }}</span>
+            <span style="color:var(--text-faint); font-size:0.78rem;">{{ item.timestamp.strftime('%b %d, %Y') }}</span>
           </div>
-          <h3 style="margin-bottom: 0.5rem; font-size: 1.1rem;">{{ item.disease }}</h3>
-          <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem; flex-grow: 1;">{{ item.advisory.description[:100] }}...</p>
-          <a href="{{ url_for('main.view_history_item', item_id=item.id) }}" class="btn-primary" style="text-align: center; width: 100%; text-decoration: none; padding: 0.5rem;">View Full Report</a>
+
+          <!-- Disease -->
+          <h3 style="font-size:1rem; font-weight:700;
+              color: {{ 'var(--green)' if item.disease.lower() == 'healthy' else 'var(--red)' }};">
+            {{ item.disease }}
+          </h3>
+
+          <!-- Advisory snippet -->
+          <p style="color:var(--text-muted); font-size:0.85rem; flex-grow:1; line-height:1.55;">
+            {{ item.advisory.description[:90] }}…
+          </p>
+
+          <!-- Actions -->
+          <div style="display:flex; gap:0.6rem; margin-top:0.5rem;">
+            <a href="{{ url_for('main.view_history_item', item_id=item.id) }}"
+               class="btn-primary"
+               style="flex:1; text-align:center; text-decoration:none; padding:0.55rem; font-size:0.88rem; margin-top:0;">
+              View Report
+            </a>
+            <form method="POST" action="{{ url_for('main.delete_history_item', item_id=item.id) }}"
+                  onsubmit="return confirm('Delete this scan record?')"
+                  style="margin:0;">
+              <button type="submit"
+                style="padding:0.55rem 0.85rem; background:rgba(255,82,82,0.1); border:1px solid rgba(255,82,82,0.3);
+                       color:var(--red); border-radius:var(--radius-sm); cursor:pointer; font-size:0.88rem;
+                       transition:var(--transition);"
+                onmouseenter="this.style.background='rgba(255,82,82,0.2)'"
+                onmouseleave="this.style.background='rgba(255,82,82,0.1)'">
+                🗑️
+              </button>
+            </form>
+          </div>
         </div>
       </div>
       {% endfor %}
     </div>
   {% endif %}
-</div>
+
+</section>
 {% endblock %}

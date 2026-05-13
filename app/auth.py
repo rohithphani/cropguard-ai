@@ -65,6 +65,9 @@ def login():
         
         user = User.query.filter_by(username=username).first()
         if user and bcrypt.check_password_hash(user.password_hash, password):
+            if user.is_banned:
+                flash('Your account has been suspended. Please contact the admin.', 'error')
+                return redirect(url_for('auth.login'))
             login_user(user, remember=True)
             next_page = request.args.get('next')
             flash('Logged in successfully!', 'success')
@@ -79,3 +82,31 @@ def logout():
     logout_user()
     flash('You have been logged out.', 'success')
     return redirect(url_for('main.index'))
+
+
+@auth.route('/change-password', methods=['POST'])
+@login_required
+def change_password():
+    current_pw  = request.form.get('current_password')
+    new_pw      = request.form.get('new_password')
+    confirm_pw  = request.form.get('confirm_password')
+
+    if not bcrypt.check_password_hash(current_user.password_hash, current_pw):
+        flash('Current password is incorrect.', 'error')
+        return redirect(url_for('auth.profile'))
+    if len(new_pw) < 6:
+        flash('New password must be at least 6 characters.', 'error')
+        return redirect(url_for('auth.profile'))
+    if new_pw != confirm_pw:
+        flash('New passwords do not match.', 'error')
+        return redirect(url_for('auth.profile'))
+
+    current_user.password_hash = bcrypt.generate_password_hash(new_pw).decode('utf-8')
+    db.session.commit()
+    flash('Password changed successfully!', 'success')
+    return redirect(url_for('auth.profile'))
+
+
+@auth.route('/forgot-password')
+def forgot_password():
+    return render_template('forgot_password.html')

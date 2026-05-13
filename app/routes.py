@@ -174,3 +174,16 @@ def view_history_item(item_id):
     session["last_image_url"] = item.image_url
     
     return render_template("result.html", prediction=prediction, advisory=item.advisory, image_url=item.image_url)
+
+
+@main.route("/history/<int:item_id>/delete", methods=["POST"])
+@login_required
+def delete_history_item(item_id):
+    item = History.query.get_or_404(item_id)
+    if item.user_id != current_user.id:
+        flash("You do not have permission to delete this item.", "error")
+        return redirect(url_for('main.history'))
+    db.session.delete(item)
+    db.session.commit()
+    flash("Scan record deleted.", "success")
+    return redirect(url_for('main.history'))
