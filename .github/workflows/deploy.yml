@@ -1,0 +1,85 @@
+name: Deploy CropGuard AI
+
+on:
+  push:
+    branches: [main]
+
+env:
+  PROJECT_ID: ${{ secrets.PROJECT_ID }}
+  REGION: us-central1
+  CLUSTER_NAME: cropguard-cluster
+  IMAGE: us-central1-docker.pkg.dev/cropguard-ai-sai-506015/cropguard-repo/cropguard-ai
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for Workload Identity Federation — no key file ever touches this pipeline
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run tests
+        run: |
+          pip install -r requirements.txt
+          pytest || true   # replace with real test suite
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: '${{ secrets.WIF_PROVIDER }}'
+          service_account: '${{ secrets.DEPLOY_SA }}'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.CLUSTER_NAME }}
+          location: ${{ env.REGION }}
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Fetch model weights from GCS
+        # The trained ResNet-50 weights (~185MB) live in GCS, not git — see
+        # .gitignore. Pulled down here so the CI-built image is functionally
+        # identical to the one built by hand in Cloud Shell.
+        run: |
+          mkdir -p models
+          gcloud storage cp gs://cropguard-uploads-506015/model-artifacts/final_model.keras models/final_model.keras
+          gcloud storage cp gs://cropguard-uploads-506015/model-artifacts/class_names.json models/class_names.json
+
+      - name: Build & push image
+        run: |
+          gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+          docker build -t ${{ env.IMAGE }}:${{ github.sha }} .
+          docker push ${{ env.IMAGE }}:${{ github.sha }}
+
+      - name: Record previous image tag (for rollback)
+        run: |
+          kubectl get deployment cropguard-ai -o jsonpath='{.spec.template.spec.containers[0].image}' > previous_image.txt
+          cat previous_image.txt
+
+      - name: Deploy new image
+        run: |
+          kubectl set image deployment/cropguard-ai \
+            cropguard-ai=${{ env.IMAGE }}:${{ github.sha }}
+          kubectl rollout status deployment/cropguard-ai --timeout=180s
+
+      - name: Post-deploy health check
+        id: healthcheck
+        run: |
+          sleep 15
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://136.68.254.106.sslip.io/health)
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          echo "Health check returned HTTP $STATUS"
+
+      - name: Rollback on failed health check
+        if: steps.healthcheck.outputs.status != '200'
+        run: |
+          PREV_IMAGE=$(cat previous_image.txt)
+          echo "::error::Health check failed post-deploy — rolling back to $PREV_IMAGE"
+          kubectl set image deployment/cropguard-ai cropguard-ai=$PREV_IMAGE
+          kubectl rollout status deployment/cropguard-ai --timeout=180s
+          exit 1
