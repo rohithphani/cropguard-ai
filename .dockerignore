@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+venv/
+.venv/
+instance/
+*.db
+static/uploads/*
+!static/uploads/.gitkeep
+gunicorn.log
+nohup.out
+.git/

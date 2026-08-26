@@ -26,7 +26,7 @@ def get_classifier():
 
 class CustomTFClassifier:
     def __init__(self):
-        print("[Model] Loading custom TensorFlow ResNet-50 ...")
+        logger.info("Loading custom TensorFlow ResNet-50 ...")
         
         # Load class names
         class_names_path = os.path.join("models", "class_names.json")
@@ -51,13 +51,13 @@ class CustomTFClassifier:
 
             if os.path.exists(model_path_fixed):
                 self.model = keras.models.load_model(model_path_fixed)
-                print(f"[Model] Weights loaded from {model_path_fixed}")
+                logger.info("Weights loaded", extra={"weights_path": model_path_fixed})
             elif os.path.exists(model_path_keras):
                 self.model = keras.models.load_model(model_path_keras)
-                print(f"[Model] Weights loaded from {model_path_keras}")
+                logger.info("Weights loaded", extra={"weights_path": model_path_keras})
             elif os.path.exists(model_path_h5):
                 self.model = keras.models.load_model(model_path_h5)
-                print(f"[Model] Weights loaded from {model_path_h5}")
+                logger.info("Weights loaded", extra={"weights_path": model_path_h5})
             else:
                 logger.warning("No model weights found. Gemini Vision will handle all predictions.")
                 self.model = None

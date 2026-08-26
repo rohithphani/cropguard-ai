@@ -1,0 +1,8 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cropguard-ai-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: { app: cropguard-ai }

@@ -1,68 +1,23 @@
-# ─── Secrets & Environment ───────────────────────────────────────────────────
 .env
-*.env
+.env.*
 !.env.example
-
-# ─── Python ──────────────────────────────────────────────────────────────────
 __pycache__/
-*.py[cod]
-*$py.class
-*.pyo
-*.pyd
-.Python
-
-# ─── Virtual Environment ─────────────────────────────────────────────────────
+*.pyc
 venv/
-env/
 .venv/
-ENV/
-
-# ─── Flask / SQLite ──────────────────────────────────────────────────────────
 instance/
 *.db
-*.sqlite3
-flask_session/
+static/uploads/*
+!static/uploads/.gitkeep
+gunicorn.log
+nohup.out
 
-# ─── ML Model Files (large binaries) ─────────────────────────────────────────
-*.keras
-*.h5
-*.pkl
-*.pt
-*.pth
-*.onnx
-*.pb
-*.tflite
-*.joblib
+# Model weights and training data — too large for git, stored in GCS instead
+# (see gs://cropguard-uploads-506015/model-artifacts/, pulled down at CI build
+# time by .github/workflows/deploy.yml)
 models/*.keras
 models/*.h5
+data/
 
-# ─── Jupyter Notebooks checkpoints ───────────────────────────────────────────
-.ipynb_checkpoints/
-notebooks/.ipynb_checkpoints/
-
-# ─── Data (usually large / sensitive) ────────────────────────────────────────
-data/raw/
-data/processed/
-data/plantvillage/
-*.csv
-*.parquet
-*.npy
-*.npz
-
-# ─── Uploads / temp files ────────────────────────────────────────────────────
-app/static/uploads/
-uploads/
-*.tmp
-
-# ─── OS & Editor ─────────────────────────────────────────────────────────────
-.DS_Store
-Thumbs.db
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# ─── Build / Dist ─────────────────────────────────────────────────────────────
-dist/
-build/
-*.egg-info/
+# One-off packaging artifact, not source
+cropguard-app.zip

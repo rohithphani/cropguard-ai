@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cropguard-ai
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: cropguard-ai }
+  template:
+    metadata:
+      labels: { app: cropguard-ai }
+    spec:
+      serviceAccountName: cropguard-app-ksa
+      containers:
+        - name: cropguard-ai
+          image: us-central1-docker.pkg.dev/cropguard-ai-sai-506015/cropguard-repo/cropguard-ai:v6
+          ports: [{ containerPort: 5000 }]
+          resources:
+            requests: { cpu: "500m", memory: "1Gi" }
+            limits:   { cpu: "1",    memory: "2Gi" }
+          env:
+            - name: GCP_PROJECT
+              value: "cropguard-ai-sai-506015"
+            - name: STORAGE_BACKEND
+              value: "gcs"
+            - name: GCS_BUCKET
+              value: "cropguard-uploads-506015"
+          livenessProbe:
+            httpGet: { path: /health, port: 5000 }
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: { path: /api/health, port: 5000 }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cropguard-ai-hpa
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: cropguard-ai }
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource: { name: cpu, target: { type: Utilization, averageUtilization: 60 } }

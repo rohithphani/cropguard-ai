@@ -16,18 +16,26 @@ def allowed_file(filename: str) -> bool:
 
 
 def save_uploaded_image(file_storage, upload_folder: str) -> tuple[str, str]:
-    """Save an uploaded FileStorage object. Returns (filename, full_path)."""
-    ext = file_storage.filename.rsplit(".", 1)[1].lower()
-    filename = f"{uuid.uuid4().hex}.{ext}"
-    filepath = os.path.join(upload_folder, filename)
-    file_storage.save(filepath)
-    return filename, filepath
+    """Save an uploaded image via the configured storage backend (local disk or GCS).
+    Returns (image_url, storage_key) — see app.storage.save_upload for details.
+    """
+    from app.storage import save_upload
+    return save_upload(file_storage, upload_folder)
 
 
 def load_image(filepath: str) -> Image.Image:
     """Open and auto-orient an image for model input."""
     img = Image.open(filepath)
     img = ImageOps.exif_transpose(img)  # Fix rotation from EXIF
+    return img.convert("RGB")
+
+
+def load_image_from_bytes(data: bytes) -> Image.Image:
+    """Open and auto-orient an in-memory image for model input (no disk round-trip —
+    used so classification works identically whether STORAGE_BACKEND is local or gcs).
+    """
+    img = Image.open(BytesIO(data))
+    img = ImageOps.exif_transpose(img)
     return img.convert("RGB")
 
 

@@ -5,7 +5,7 @@ import json
 from flask import (Blueprint, render_template, request, redirect,
                    url_for, flash, current_app, send_file, session)
 from io import BytesIO
-from app.utils import allowed_file, save_uploaded_image, load_image, generate_pdf_report
+from app.utils import allowed_file, save_uploaded_image, load_image_from_bytes, generate_pdf_report
 from app.model import get_classifier
 from app.advisor import generate_advisory, classify_with_gemini_vision
 from flask_login import current_user, login_required
@@ -37,12 +37,18 @@ def predict():
         return redirect(url_for("main.index"))
 
     try:
-        # Save uploaded image
-        filename, filepath = save_uploaded_image(file, current_app.config["UPLOAD_FOLDER"])
-        image_url = url_for("static", filename=f"uploads/{filename}")
+        # Read the raw bytes once and classify directly from memory — this works
+        # identically whether STORAGE_BACKEND is "local" or "gcs", since inference
+        # never depends on where (or whether) the file ends up persisted on disk.
+        file.stream.seek(0)
+        raw_bytes = file.read()
+        file.stream.seek(0)  # rewind so save_uploaded_image can still read/save the same stream
 
-        # Load image once — reused for both ResNet50 and Gemini Vision fallback
-        image = load_image(filepath)
+        image = load_image_from_bytes(raw_bytes)
+
+        # Persist the upload (local disk in dev, GCS in cloud — see app/storage.py).
+        # storage_key is what download_report() uses later to re-fetch the file.
+        image_url, storage_key = save_uploaded_image(file, current_app.config["UPLOAD_FOLDER"])
 
         # Run ResNet50 inference (with TTA)
         classifier = get_classifier()
@@ -96,7 +102,7 @@ def predict():
         # Store in session for PDF download
         session["last_prediction"] = prediction
         session["last_advisory"] = advisory
-        session["last_image_path"] = filepath
+        session["last_image_key"] = storage_key
         session["last_image_url"] = image_url
 
         if current_user.is_authenticated:
@@ -129,13 +135,15 @@ def predict():
 def download_report():
     prediction = session.get("last_prediction")
     advisory = session.get("last_advisory")
-    image_path = session.get("last_image_path", "")
+    storage_key = session.get("last_image_key", "")
 
     if not prediction or not advisory:
         flash("No prediction data found. Please analyse an image first.", "error")
         return redirect(url_for("main.index"))
 
     try:
+        from app.storage import open_for_read
+        image_path = open_for_read(storage_key) if storage_key else ""
         pdf_bytes = generate_pdf_report(prediction, advisory, image_path)
         buf = BytesIO(pdf_bytes)
         buf.seek(0)
@@ -153,6 +161,16 @@ def download_report():
 def about():
     return render_template("about.html")
 
+
+@main.route("/health")
+def health():
+    """Lightweight liveness check — no DB call, so a slow database never fails
+    this probe and triggers a pod restart loop. See /api/health for a real
+    dependency check used by the readiness probe instead.
+    """
+    return {"status": "ok"}, 200
+
+
 @main.route("/history")
 @login_required
 def history():
@@ -167,7 +185,19 @@ def view_history_item(item_id):
         flash("You do not have permission to view this item.", "error")
         return redirect(url_for('main.history'))
     
-    prediction = {"crop": item.crop, "disease": item.disease, "is_healthy": item.disease == "Healthy"}
+    # History doesn't persist the original tier/confidence/top-predictions from the
+    # live /predict flow — default sensibly so result.html (which expects those fields)
+    # doesn't crash when re-viewing a saved scan.
+    prediction = {
+        "crop": item.crop,
+        "disease": item.disease,
+        "is_healthy": item.disease == "Healthy",
+        "tier": 1,
+        "confidence": 100,
+        "gemini_enhanced": False,
+        "gemini_reasoning": None,
+        "top_predictions": [],
+    }
     
     session["last_prediction"] = prediction
     session["last_advisory"] = item.advisory
