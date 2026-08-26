@@ -62,24 +62,31 @@ jobs:
           cat previous_image.txt
 
       - name: Deploy new image
+        id: deploy
+        continue-on-error: true
+        # continue-on-error lets the job reach the rollback step below even if
+        # the rollout itself times out or fails — otherwise GitHub Actions
+        # skips every remaining step the moment this one fails, and the
+        # pipeline's whole "automatic rollback" story silently never runs.
         run: |
           kubectl set image deployment/cropguard-ai \
             cropguard-ai=${{ env.IMAGE }}:${{ github.sha }}
-          kubectl rollout status deployment/cropguard-ai --timeout=180s
+          kubectl rollout status deployment/cropguard-ai --timeout=300s
 
       - name: Post-deploy health check
         id: healthcheck
+        if: steps.deploy.outcome == 'success'
         run: |
           sleep 15
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://136.68.254.106.sslip.io/health)
           echo "status=$STATUS" >> "$GITHUB_OUTPUT"
           echo "Health check returned HTTP $STATUS"
 
-      - name: Rollback on failed health check
-        if: steps.healthcheck.outputs.status != '200'
+      - name: Rollback on failed deploy or failed health check
+        if: steps.deploy.outcome != 'success' || steps.healthcheck.outputs.status != '200'
         run: |
           PREV_IMAGE=$(cat previous_image.txt)
-          echo "::error::Health check failed post-deploy — rolling back to $PREV_IMAGE"
+          echo "::error::Deploy failed or health check failed — rolling back to $PREV_IMAGE"
           kubectl set image deployment/cropguard-ai cropguard-ai=$PREV_IMAGE
-          kubectl rollout status deployment/cropguard-ai --timeout=180s
+          kubectl rollout status deployment/cropguard-ai --timeout=300s
           exit 1
