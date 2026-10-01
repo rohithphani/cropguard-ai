@@ -1,14 +1,47 @@
+# --- Secrets: must never enter the image ---
 .env
 .env.*
-!.env.example
-__pycache__/
-*.pyc
+*.pem
+*.key
+*.json.key
+
+# --- Version control / CI ---
+.git
+.gitignore
+.github
+
+# --- Local Python environments and caches (Windows-only, huge) ---
 venv/
 .venv/
+env/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# --- Training data and notebooks (2 GB, not needed to serve predictions) ---
+data/
+notebooks/
+
+# --- Local runtime state (the container gets its own via volumes) ---
 instance/
 *.db
 static/uploads/*
-!static/uploads/.gitkeep
-gunicorn.log
+*.log
 nohup.out
-.git/
+
+# --- Old packaging artifacts and other deploy targets ---
+cropguard-app.zip
+*.tar.gz
+k8s/
+infra/
+docs/
+render.yaml
+Procfile
+requirements-render.txt
+
+# --- Docker files themselves / editor settings ---
+Dockerfile
+docker-compose.yml
+.dockerignore
+.vscode/
+.idea/
