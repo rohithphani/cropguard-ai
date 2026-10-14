@@ -21,6 +21,8 @@ class Config:
     SECRET_KEY = _get_secret("flask-secret-key", "SECRET_KEY", "dev-secret-key-change-in-production")
     GEMINI_API_KEY = _get_secret("gemini-api-key", "GEMINI_API_KEY", "")
     API_KEY = _get_secret("cropguard-api-key", "API_KEY", "cropguard-api-key-change-me")
+    # Initial admin password: Secret Manager in the cloud, .env locally. No default in code.
+    ADMIN_PASSWORD = _get_secret("admin-password", "ADMIN_PASSWORD", "")
 
     # HuggingFace model for PlantVillage 38-class classification
     MODEL_NAME = "linkanjarad/mobilenet_v2_1.0_224-plant-disease-identification"

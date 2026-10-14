@@ -33,6 +33,8 @@ USER appuser
 
 EXPOSE 5000
 
-# 1) create the database tables if missing (the Milestone 2 "no such table: user" fix, now automatic)
+# 1) apply database migrations (Alembic, migrations/ folder) -- creates/updates tables
+#    in Cloud SQL; replaces the Milestone 3 create_all() shortcut
 # 2) start gunicorn: 1 worker so TensorFlow loads once, 4 threads
-CMD ["sh", "-c", "python -c \"from app import create_app; a=create_app(); a.app_context().push(); a.extensions['sqlalchemy'].create_all(); print('DB ready')\" && exec gunicorn 'app:create_app()' --bind 0.0.0.0:5000 --workers 1 --threads 4 --timeout 180"]
+ENV FLASK_APP=run.py
+CMD ["sh", "-c", "flask db upgrade && exec gunicorn 'app:create_app()' --bind 0.0.0.0:5000 --workers 1 --threads 4 --timeout 180"]

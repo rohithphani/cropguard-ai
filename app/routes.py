@@ -157,6 +157,20 @@ def download_report():
         return redirect(url_for("main.index"))
 
 
+@main.route("/uploads/<path:filename>")
+@login_required
+def serve_upload(filename):
+    """Stream an uploaded image from the private Cloud Storage bucket."""
+    from app.storage import read_upload
+    if "/" in filename or ".." in filename:
+        return {"error": "invalid filename"}, 400
+    try:
+        data, content_type = read_upload(filename)
+    except Exception:
+        return {"error": "not found"}, 404
+    return send_file(BytesIO(data), mimetype=content_type, max_age=3600)
+
+
 @main.route("/about")
 def about():
     return render_template("about.html")

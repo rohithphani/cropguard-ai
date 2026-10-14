@@ -26,7 +26,10 @@ def save_upload(file_storage, upload_folder: str) -> tuple[str, str]:
         blob = bucket.blob(f"uploads/{filename}")
         file_storage.stream.seek(0)
         blob.upload_from_file(file_storage.stream, content_type=file_storage.mimetype)
-        return blob.public_url, f"gs://{GCS_BUCKET}/uploads/{filename}"
+        # The bucket is PRIVATE (public access prevention enforced). Images are served
+        # through the app's /uploads/<filename> route, which reads the object using the
+        # VM's attached service account (no key files) -- see read_upload() below.
+        return url_for("main.serve_upload", filename=filename), f"gs://{GCS_BUCKET}/uploads/{filename}"
 
     # local fallback (unchanged behaviour from before Step 7)
     filepath = os.path.join(upload_folder, filename)
@@ -52,3 +55,12 @@ def open_for_read(storage_key: str) -> str:
         return tmp.name
 
     return storage_key  # already a local filesystem path
+
+
+def read_upload(filename: str):
+    """Return (bytes, content_type) for an uploaded image stored in the private GCS bucket.
+    Authenticates with the VM's service account via Application Default Credentials."""
+    from google.cloud import storage
+    blob = storage.Client().bucket(GCS_BUCKET).blob(f"uploads/{filename}")
+    data = blob.download_as_bytes()
+    return data, (blob.content_type or "application/octet-stream")
