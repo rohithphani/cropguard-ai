@@ -45,3 +45,10 @@ docker-compose.yml
 .dockerignore
 .vscode/
 .idea/
+
+# --- Course deliverables and local notes (not part of the app) ---
+Claude outputs/
+m3-vm-*.txt
+build.log
+*.pptx
+*.docx
