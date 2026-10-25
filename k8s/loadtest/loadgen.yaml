@@ -1,0 +1,22 @@
+# Demo only: generates CPU load so the HPA scales out. Delete it to scale back in:
+#   kubectl delete -f k8s/loadtest/loadgen.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loadgen
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: loadgen }
+  template:
+    metadata:
+      labels: { app: loadgen }
+    spec:
+      containers:
+        - name: load
+          image: busybox:1.36
+          resources:
+            requests: { cpu: "500m", memory: "256Mi" }
+          command: ["/bin/sh", "-c"]
+          args:
+            - for i in $(seq 1 40); do (while true; do wget -q -O /dev/null http://cropguard-svc/login; done) & done; wait

@@ -1,8 +1,10 @@
+# Voluntary disruptions (node upgrades, Autopilot bin-packing) may evict at most
+# one replica at a time; the next eviction waits until a replacement is Ready.
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: cropguard-ai-pdb
+  name: cropguard-pdb
 spec:
   minAvailable: 1
   selector:
-    matchLabels: { app: cropguard-ai }
+    matchLabels: { app: cropguard }

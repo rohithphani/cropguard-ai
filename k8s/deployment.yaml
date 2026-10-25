@@ -1,47 +1,59 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cropguard-ai
+  name: cropguard
+  labels: { app: cropguard }
 spec:
-  replicas: 2
+  replicas: 2                      # the HPA keeps this between 2 and 5
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }   # never drop below the current count during a rollout
   selector:
-    matchLabels: { app: cropguard-ai }
+    matchLabels: { app: cropguard }
   template:
     metadata:
-      labels: { app: cropguard-ai }
+      labels: { app: cropguard }
     spec:
-      serviceAccountName: cropguard-app-ksa
+      serviceAccountName: cropguard-ksa
+      terminationGracePeriodSeconds: 45
+      topologySpreadConstraints:   # prefer replicas on different nodes
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector: { matchLabels: { app: cropguard } }
       containers:
-        - name: cropguard-ai
-          image: us-central1-docker.pkg.dev/cropguard-ai-sai-506015/cropguard-repo/cropguard-ai:v6
-          ports: [{ containerPort: 5000 }]
-          resources:
-            requests: { cpu: "500m", memory: "1Gi" }
-            limits:   { cpu: "1",    memory: "2Gi" }
+        - name: web
+          image: us-central1-docker.pkg.dev/cropguard-ai-509423/cropguard/cropguard-app:v4
+          ports:
+            - { name: http, containerPort: 5000 }
           env:
-            - name: GCP_PROJECT
-              value: "cropguard-ai-sai-506015"
-            - name: STORAGE_BACKEND
-              value: "gcs"
-            - name: GCS_BUCKET
-              value: "cropguard-uploads-506015"
-          livenessProbe:
-            httpGet: { path: /health, port: 5000 }
-            initialDelaySeconds: 30
-            periodSeconds: 15
-          readinessProbe:
-            httpGet: { path: /api/health, port: 5000 }
-            initialDelaySeconds: 15
+            - { name: GCP_PROJECT, value: "cropguard-ai-509423" }          # secrets come from Secret Manager, not env
+            - { name: STORAGE_BACKEND, value: "gcs" }
+            - { name: GCS_BUCKET, value: "cropguard-ai-509423-uploads" }
+            - { name: FLASK_DEBUG, value: "false" }
+          resources:
+            requests: { cpu: "500m", memory: "3Gi", ephemeral-storage: "2Gi" }
+            limits:   { cpu: "500m", memory: "3Gi", ephemeral-storage: "2Gi" }
+          # Startup: give TensorFlow time to import before liveness starts counting.
+          startupProbe:
+            httpGet: { path: /health, port: http }
             periodSeconds: 10
----
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: cropguard-ai-hpa
-spec:
-  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: cropguard-ai }
-  minReplicas: 2
-  maxReplicas: 6
-  metrics:
-    - type: Resource
-      resource: { name: cpu, target: { type: Utilization, averageUtilization: 60 } }
+            failureThreshold: 30
+          # Liveness: is the process alive? No database call, so a database
+          # outage never causes a restart loop.
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Readiness: can this pod serve real requests? Runs SELECT 1 on Cloud SQL.
+          # Failing removes the pod from the load balancer but does not restart it.
+          readinessProbe:
+            httpGet: { path: /readyz, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 2
+          lifecycle:
+            preStop:               # keep serving while the load balancer stops sending traffic
+              exec: { command: ["sleep", "15"] }

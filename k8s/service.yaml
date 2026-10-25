@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cropguard-svc
+  annotations:
+    cloud.google.com/neg: '{"ingress": true}'                          # container-native load balancing
+    cloud.google.com/backend-config: '{"default": "cropguard-backendconfig"}'
+spec:
+  type: ClusterIP
+  selector: { app: cropguard }
+  ports:
+    - { name: http, port: 80, targetPort: http }
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: cropguard-backendconfig
+spec:
+  timeoutSec: 120                  # predictions + Gemini advisory can exceed the 30 s default
+  connectionDraining: { drainingTimeoutSec: 30 }
+  healthCheck:
+    type: HTTP
+    requestPath: /readyz
+    port: 5000
+    checkIntervalSec: 10
+    timeoutSec: 5
+    healthyThreshold: 1
+    unhealthyThreshold: 3

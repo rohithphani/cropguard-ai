@@ -185,6 +185,23 @@ def health():
     return {"status": "ok"}, 200
 
 
+@main.route("/readyz")
+def readyz():
+    """Readiness check -- also proves this pod can reach Cloud SQL.
+
+    Kubernetes only sends traffic to a pod while this returns 200. If the
+    database is unreachable the pod is taken out of the load balancer
+    (503) but NOT restarted, because restarting would not fix the database.
+    """
+    from sqlalchemy import text
+    try:
+        db.session.execute(text("SELECT 1"))
+        return {"status": "ready", "database": "ok"}, 200
+    except Exception:
+        db.session.rollback()
+        return {"status": "not ready", "database": "unreachable"}, 503
+
+
 @main.route("/history")
 @login_required
 def history():
