@@ -209,6 +209,10 @@ def readyz():
     (503) but NOT restarted, because restarting would not fix the database.
     """
     from sqlalchemy import text
+    # Controlled failure for the CI/CD rollback demo: a release that contains a
+    # BREAK_READINESS file never becomes Ready, so the pipeline must roll it back.
+    if os.path.exists(os.path.join(current_app.root_path, "..", "BREAK_READINESS")):
+        return {"status": "not ready", "reason": "BREAK_READINESS flag (controlled rollback demo)"}, 503
     try:
         db.session.execute(text("SELECT 1"))
         return {"status": "ready", "database": "ok"}, 200
