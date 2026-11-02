@@ -1,92 +1,145 @@
-name: Deploy CropGuard AI
+# CropGuard AI - CI/CD (Milestone 6)
+# Every push to main: build -> push -> deploy to GKE -> health-check.
+# If the rollout or the health check fails, the deployment is rolled back
+# automatically and the pipeline verifies the previous version is serving.
+name: Build, deploy & health-check
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
 
 env:
-  PROJECT_ID: ${{ secrets.PROJECT_ID }}
+  PROJECT_ID: cropguard-ai-509423
   REGION: us-central1
-  CLUSTER_NAME: cropguard-cluster
-  IMAGE: us-central1-docker.pkg.dev/cropguard-ai-sai-506015/cropguard-repo/cropguard-ai
+  CLUSTER: cropguard-cluster
+  IMAGE: us-central1-docker.pkg.dev/cropguard-ai-509423/cropguard/cropguard-app
+  APP_URL: https://136-68-161-188.sslip.io
+  # Keyless auth (Workload Identity Federation) - created by infra/cicd.tf. Not secrets.
+  WIF_PROVIDER: projects/387386737350/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+  DEPLOY_SA: cropguard-deployer@cropguard-ai-509423.iam.gserviceaccount.com
 
 jobs:
-  build-test-deploy:
+  build:
+    name: Build & push image
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # required for Workload Identity Federation — no key file ever touches this pipeline
-
+      id-token: write
     steps:
       - uses: actions/checkout@v4
-
-      - name: Run tests
-        run: |
-          pip install -r requirements.txt
-          pytest || true   # replace with real test suite
 
       - id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: '${{ secrets.WIF_PROVIDER }}'
-          service_account: '${{ secrets.DEPLOY_SA }}'
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SA }}
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@v2
 
-      - name: Get GKE credentials
-        uses: google-github-actions/get-gke-credentials@v2
+      - name: Free runner disk space (TensorFlow + PyTorch image is ~6 GB)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Fetch trained model from GCS (not stored in git)
+        run: gcloud storage cp gs://${{ env.PROJECT_ID }}-artifacts/models/final_model.keras models/final_model.keras
+
+      - name: Log in to Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push ${{ github.sha }}
+        uses: docker/build-push-action@v6
         with:
-          cluster_name: ${{ env.CLUSTER_NAME }}
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}:${{ github.sha }}
+          build-args: APP_VERSION=${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache,mode=max
+
+  deploy:
+    name: Deploy, health-check, auto-rollback
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SA }}
+
+      - uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.CLUSTER }}
           location: ${{ env.REGION }}
           project_id: ${{ env.PROJECT_ID }}
 
-      - name: Fetch model weights from GCS
-        # The trained ResNet-50 weights (~185MB) live in GCS, not git — see
-        # .gitignore. Pulled down here so the CI-built image is functionally
-        # identical to the one built by hand in Cloud Shell.
+      - name: Record the version currently serving (rollback target)
+        id: prev
         run: |
-          mkdir -p models
-          gcloud storage cp gs://cropguard-uploads-506015/model-artifacts/final_model.keras models/final_model.keras
-          gcloud storage cp gs://cropguard-uploads-506015/model-artifacts/class_names.json models/class_names.json
+          PREV=$(kubectl get deployment cropguard -o jsonpath='{.spec.template.spec.containers[0].image}')
+          echo "image=$PREV" >> "$GITHUB_OUTPUT"
+          echo "Currently serving: $PREV"
+          curl -s "$APP_URL/health"; echo
 
-      - name: Build & push image
+      - name: Deploy ${{ github.sha }}
+        id: rollout
+        continue-on-error: true   # let the rollback steps run if this fails
         run: |
-          gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
-          docker build -t ${{ env.IMAGE }}:${{ github.sha }} .
-          docker push ${{ env.IMAGE }}:${{ github.sha }}
+          kubectl set image deployment/cropguard web=$IMAGE:$GITHUB_SHA
+          kubectl annotate deployment/cropguard kubernetes.io/change-cause="github-actions ${GITHUB_SHA::7}" --overwrite
+          # Fails if new pods never pass the readiness probe (/readyz) in time.
+          # maxUnavailable: 0 keeps the old pods serving meanwhile.
+          kubectl rollout status deployment/cropguard --timeout=360s
 
-      - name: Record previous image tag (for rollback)
-        run: |
-          kubectl get deployment cropguard-ai -o jsonpath='{.spec.template.spec.containers[0].image}' > previous_image.txt
-          cat previous_image.txt
-
-      - name: Deploy new image
-        id: deploy
+      - name: Health check (public HTTPS URL)
+        id: health
+        if: steps.rollout.outcome == 'success'
         continue-on-error: true
-        # continue-on-error lets the job reach the rollback step below even if
-        # the rollout itself times out or fails — otherwise GitHub Actions
-        # skips every remaining step the moment this one fails, and the
-        # pipeline's whole "automatic rollback" story silently never runs.
         run: |
-          kubectl set image deployment/cropguard-ai \
-            cropguard-ai=${{ env.IMAGE }}:${{ github.sha }}
-          kubectl rollout status deployment/cropguard-ai --timeout=300s
+          for i in $(seq 1 12); do
+            READY=$(curl -s -o /dev/null -w '%{http_code}' "$APP_URL/readyz")
+            VERSION=$(curl -s "$APP_URL/health" | jq -r '.version // "none"')
+            echo "attempt $i: /readyz=$READY  serving version=$VERSION"
+            if [ "$READY" = "200" ] && [ "$VERSION" = "$GITHUB_SHA" ]; then
+              echo "Healthy: $APP_URL is serving $GITHUB_SHA"; exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::Health check failed for $GITHUB_SHA"; exit 1
 
-      - name: Post-deploy health check
-        id: healthcheck
-        if: steps.deploy.outcome == 'success'
+      - name: Automatic rollback
+        id: rollback
+        if: steps.rollout.outcome != 'success' || steps.health.outcome != 'success'
         run: |
-          sleep 15
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://136.68.254.106.sslip.io/health)
-          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
-          echo "Health check returned HTTP $STATUS"
+          echo "::warning::Deployment of ${GITHUB_SHA::7} failed (rollout=${{ steps.rollout.outcome }}, health=${{ steps.health.outcome }}). Rolling back."
+          kubectl rollout undo deployment/cropguard
+          kubectl rollout status deployment/cropguard --timeout=360s
+          kubectl rollout history deployment/cropguard | tail -4
 
-      - name: Rollback on failed deploy or failed health check
-        if: steps.deploy.outcome != 'success' || steps.healthcheck.outputs.status != '200'
+      - name: Verify the previous version is serving traffic
+        if: steps.rollback.outcome == 'success'
         run: |
-          PREV_IMAGE=$(cat previous_image.txt)
-          echo "::error::Deploy failed or health check failed — rolling back to $PREV_IMAGE"
-          kubectl set image deployment/cropguard-ai cropguard-ai=$PREV_IMAGE
-          kubectl rollout status deployment/cropguard-ai --timeout=300s
-          exit 1
+          NOW=$(kubectl get deployment cropguard -o jsonpath='{.spec.template.spec.containers[0].image}')
+          echo "Deployment image after rollback: $NOW"
+          echo "Expected (previous):            ${{ steps.prev.outputs.image }}"
+          [ "$NOW" = "${{ steps.prev.outputs.image }}" ] || { echo "::error::Rollback did not restore the previous image"; exit 1; }
+          for i in $(seq 1 12); do
+            READY=$(curl -s -o /dev/null -w '%{http_code}' "$APP_URL/readyz")
+            echo "attempt $i: /readyz=$READY  /health=$(curl -s "$APP_URL/health")"
+            [ "$READY" = "200" ] && break
+            sleep 10
+          done
+          [ "$READY" = "200" ] || { echo "::error::Previous version is not healthy"; exit 1; }
+          echo "::error::Release ${GITHUB_SHA::7} was rolled back automatically; previous version is serving traffic."
+          exit 1   # mark the run as failed: the new release did not ship

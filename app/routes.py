@@ -182,7 +182,22 @@ def health():
     this probe and triggers a pod restart loop. See /api/health for a real
     dependency check used by the readiness probe instead.
     """
-    return {"status": "ok"}, 200
+    return {"status": "ok", "version": os.getenv("APP_VERSION", "unknown")}, 200
+
+
+@main.route("/simulate-error")
+@login_required
+def simulate_error():
+    """Controlled failure for the observability demo: always answers HTTP 500.
+
+    Admin-only, touches no data. The request log line it produces (severity
+    ERROR, status 500) is counted by the log-based metric and fires the alert.
+    """
+    if not current_user.is_admin:
+        return {"error": "forbidden"}, 403
+    current_app.logger.error("simulated failure requested",
+                             extra={"reason": "controlled 5xx demo", "user": current_user.username})
+    return {"error": "simulated server error (controlled demo)"}, 500
 
 
 @main.route("/readyz")

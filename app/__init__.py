@@ -60,12 +60,18 @@ def create_app():
 
     @app.after_request
     def _log_request(response):
-        app.logger.info(
+        # One structured JSON line per request. 5xx responses are logged at ERROR
+        # severity; the Cloud Logging log-based metric "cropguard_http_5xx_count"
+        # counts entries with jsonPayload.message="request" AND jsonPayload.status>=500.
+        status = response.status_code
+        level = logging.ERROR if status >= 500 else logging.WARNING if status >= 400 else logging.INFO
+        app.logger.log(
+            level,
             "request",
             extra={
                 "path": request.path,
                 "method": request.method,
-                "status": response.status_code,
+                "status": status,
                 "duration_ms": round((time.time() - getattr(request, "_start_time", time.time())) * 1000, 1),
             },
         )

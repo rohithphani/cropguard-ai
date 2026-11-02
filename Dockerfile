@@ -22,13 +22,19 @@ RUN pip install --no-cache-dir --upgrade pip \
  && pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple \
  && pip install --no-cache-dir -r requirements.txt
 
-# App code + trained model (secrets, data, venv etc. are excluded by .dockerignore)
-COPY . .
-
-# Run as a non-root user; create folders that are mounted as volumes
+# Non-root user and runtime folders, created BEFORE the code is copied so a
+# code-only change rebuilds just the COPY layer (fast CI builds from cache).
 RUN useradd --create-home --uid 1000 appuser \
  && mkdir -p /app/instance /app/static/uploads \
  && chown -R appuser:appuser /app
+
+# App code + trained model (secrets, data, venv etc. are excluded by .dockerignore)
+COPY --chown=appuser:appuser . .
+
+# Version stamp: CI passes the git commit SHA; /health reports it so the
+# pipeline can verify which version is serving traffic (and after a rollback).
+ARG APP_VERSION=dev
+ENV APP_VERSION=${APP_VERSION}
 USER appuser
 
 EXPOSE 5000

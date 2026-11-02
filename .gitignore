@@ -21,3 +21,13 @@ data/
 
 # One-off packaging artifact, not source
 cropguard-app.zip
+
+# Terraform: state lives in gs://cropguard-ai-509423-tfstate, never in git
+infra/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+infra/terraform.tfvars
+infra/generated.tf*
+infra/plan*.txt

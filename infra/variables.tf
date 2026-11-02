@@ -1,25 +1,31 @@
 variable "project_id" {
-  description = "GCP project ID"
-  type        = string
+  type    = string
+  default = "cropguard-ai-509423"
 }
 
 variable "project_number" {
-  description = "GCP project number (used to reference the default compute service account)"
-  type        = string
-}
-
-variable "project_suffix" {
-  description = "Suffix used in globally-unique bucket names (matches the project number suffix used when the bucket was first created)"
-  type        = string
+  type    = string
+  default = "387386737350"
 }
 
 variable "region" {
-  description = "GCP region"
-  type        = string
-  default     = "us-central1"
+  type    = string
+  default = "us-central1"
 }
 
-variable "billing_account" {
-  description = "Billing account ID, format XXXXXX-XXXXXX-XXXXXX"
+variable "github_repo" {
+  description = "owner/repo allowed to deploy through Workload Identity Federation"
   type        = string
+  default     = "rohithphani/cropguard-ai"
+}
+
+variable "alert_email" {
+  description = "Inbox that receives Cloud Monitoring alert notifications"
+  type        = string
+  default     = "rahulreddykesireddy2002@gmail.com"
+}
+
+variable "app_url" {
+  type    = string
+  default = "https://136-68-161-188.sslip.io"
 }
