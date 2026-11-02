@@ -107,9 +107,11 @@ jobs:
         if: steps.rollout.outcome == 'success'
         continue-on-error: true
         run: |
-          for i in $(seq 1 12); do
+          set +e   # keep retrying through transient LB responses (non-JSON 502 pages, resets)
+          for i in $(seq 1 18); do
             READY=$(curl -s -o /dev/null -w '%{http_code}' "$APP_URL/readyz")
-            VERSION=$(curl -s "$APP_URL/health" | jq -r '.version // "none"')
+            VERSION=$(curl -s "$APP_URL/health" | jq -r '.version // "none"' 2>/dev/null)
+            VERSION=${VERSION:-unreachable}
             echo "attempt $i: /readyz=$READY  serving version=$VERSION"
             if [ "$READY" = "200" ] && [ "$VERSION" = "$GITHUB_SHA" ]; then
               echo "Healthy: $APP_URL is serving $GITHUB_SHA"; exit 0
@@ -134,7 +136,8 @@ jobs:
           echo "Deployment image after rollback: $NOW"
           echo "Expected (previous):            ${{ steps.prev.outputs.image }}"
           [ "$NOW" = "${{ steps.prev.outputs.image }}" ] || { echo "::error::Rollback did not restore the previous image"; exit 1; }
-          for i in $(seq 1 12); do
+          set +e
+          for i in $(seq 1 18); do
             READY=$(curl -s -o /dev/null -w '%{http_code}' "$APP_URL/readyz")
             echo "attempt $i: /readyz=$READY  /health=$(curl -s "$APP_URL/health")"
             [ "$READY" = "200" ] && break
